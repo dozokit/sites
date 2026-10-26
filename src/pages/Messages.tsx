@@ -17,7 +17,7 @@ export function Messages({ site, onSite }: { site: SiteDetail; onSite: (s: SiteD
   return (
     <section className="page-section">
       <h2>Messages from your contact form</h2>
-      {!list.length && <p className="muted">No message yet. Your site has no contact form unless you ask for one: ask the chat “add a contact form”. Messages sent through it appear here.</p>}
+      {!list.length && <p className="muted">No message yet. Your site has no contact form unless you ask for one: ask Claude “add a contact form to my site”. Messages sent through it appear here.</p>}
       <ul className="messages">
         {list.map((m) => (
           <li key={m.id} className={m.read ? "" : "unread"}>

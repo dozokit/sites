@@ -13,7 +13,7 @@ const json = (data: unknown, status = 200) => Response.json(data, { status });
 const body = async (req: Request) => (await req.json().catch(() => ({}))) as Record<string, unknown>;
 
 // This copy's release. Raise it with each tag on github.com/dozokit/sites and its CHANGELOG.md entry.
-const VERSION = "0.1.1";
+const VERSION = "0.1.2";
 
 // Where a site can be visited: its domain, else the builder's address (the first site at the
 // root, the others under /<slug>/).
@@ -109,7 +109,7 @@ async function publish(req: Request, env: Env, id: number, origin: string) {
 
 // A domain is saved only once a test request through it reaches this Worker: the owner added it
 // as a Custom domain on this Worker in Cloudflare.
-async function setDomain(env: Env, id: number, raw: string) {
+export async function setDomain(env: Env, id: number, raw: string) {
   const domain = raw.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
   if (!domain) return updateSite(env, id, { domain: null });
   if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(domain)) throw new AiError("Type only the domain, like martin-plomberie.fr.");

@@ -1,5 +1,6 @@
 import { AiError, apply, SHAPE, tidy, type Op } from "./doc";
 import type { Env } from "./index";
+import { setDomain } from "./api";
 import { readSite } from "./import";
 import { RECIPES } from "./recipes";
 import { checks } from "./seo";
@@ -196,6 +197,17 @@ const TOOLS: Tool[] = [
       if (!d || !(await site(env, id))) throw new AiError(`There's no site ${String(a.site_id)}.`);
       await updateSite(env, id, { published: d.id });
       return { live_at: await address(env, origin, id), suggestions: checks(d.doc).filter((c) => !c.ok).map((c) => `${c.label}: ${c.fix}`) };
+    },
+  },
+  {
+    name: "set_domain",
+    description: "Put a site on the owner's own domain (like martin-plomberie.fr), once they have added it in Cloudflare as a Custom domain of this builder's Worker (get_recipe own-domain has those steps). Checks the domain really reaches this builder before saving, and says what's missing if not. Pass an empty domain to go back to the builder's address.",
+    inputSchema: { type: "object", properties: { site_id: { type: "number" }, domain: { type: "string", description: "Only the domain, like martin-plomberie.fr" } }, required: ["site_id", "domain"] },
+    run: async (a, { env, origin }) => {
+      const { id } = await own(env, a.site_id);
+      await setDomain(env, id, String(a.domain ?? ""));
+      const s = await site(env, id);
+      return { site_id: id, address: await address(env, origin, id), published: Boolean(s?.published), next: s?.published ? "Tell the owner the address: the old one now sends visitors there." : "The address is ready; the site shows there once it's published (publish, when the owner says so)." };
     },
   },
   {

@@ -60,7 +60,7 @@ export function SiteSettings({ site, builder, onSite, onDeleted }: { site: SiteD
           <>
             Your site is at <a href={site.address + "/"} target="_blank" rel="noopener">{site.address}</a>. To use your own domain (like martin-plomberie.fr): in Cloudflare open{" "}
             <strong>Workers &amp; Pages → this builder → Settings → Domains &amp; Routes → Add → Custom domain</strong>, add it, then type it here. Saving checks that it reaches this site first; the old
-            address then sends visitors to it. No domain yet? Ask the chat “how do I use my own domain”.
+            address then sends visitors to it. No domain yet? Ask Claude “how do I use my own domain with Dozokit Sites”.
           </>
         }
         onSave={async () => onSite(await api<SiteDetail>(`${at}/settings`, { method: "PUT", body: JSON.stringify({ domain }) }))}

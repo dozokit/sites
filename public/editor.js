@@ -53,7 +53,8 @@
     if (el.matches(".topbar, body > header")) return "Top bar";
     if (el.querySelectorAll(":scope > a, :scope > button").length > 1 && !el.matches("nav")) return "Buttons";
     // Lists and boxes are named after their class when they have one ("Gallery", "Mosaic").
-    var c = (el.getAttribute("class") || "").split(/\s+/).filter(function (x) { return x && !/^(l|s|is|has)-/.test(x); })[0];
+    // Classes too short to mean anything ("d", "p2") don't make names.
+    var c = (el.getAttribute("class") || "").split(/\s+/).filter(function (x) { return x.length > 2 && !/^(l|s|is|has)-/.test(x); })[0];
     if (NAMES[el.tagName] && !(c && /^(UL|OL|LI|DIV|FIGURE)$/.test(el.tagName))) return NAMES[el.tagName];
     if (c) return (c.charAt(0).toUpperCase() + c.slice(1)).replace(/--.*/, "").replace(/[-_]+/g, " ");
     return NAMES[el.tagName] || el.tagName.toLowerCase();
@@ -175,6 +176,9 @@
     },
     true,
   );
+  document.addEventListener("mousedown", function (e) {
+    if (on && e.shiftKey) e.preventDefault();
+  }, true);
   document.addEventListener("submit", function (e) {
     e.preventDefault();
   }, true);
@@ -204,6 +208,10 @@
     if (d.type === "mode") {
       on = Boolean(d.on);
       document.documentElement.style.cursor = on ? "crosshair" : "";
+      // Shift+click would otherwise select the text between two picks.
+      document.documentElement.style.userSelect = on ? "none" : "";
+      document.documentElement.style.webkitUserSelect = on ? "none" : "";
+      if (on) getSelection().removeAllRanges();
       hl.style.display = "none";
       editEl = null;
       if (editBox) editBox.style.display = "none";
