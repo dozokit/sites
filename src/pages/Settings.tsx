@@ -4,6 +4,7 @@ import { Markdown } from "../lib/markdown";
 import type { Recipe, SiteDetail, State } from "../lib/types";
 import { ChangePassword } from "./Password";
 import { ago, ConnectSteps } from "./Start";
+import { TurnOnUpdates } from "./TurnOnUpdates";
 
 type Ver = { id: number; note: string; via: string; created_at: number };
 
@@ -264,8 +265,13 @@ export function BuilderSettings({ state, onState, passwordRequired, version, par
       )}
 
       <section className="page-section">
+        <h2>Updates</h2>
+        <TurnOnUpdates />
+      </section>
+
+      <section className="page-section">
         <h2>Version</h2>
-        <p className="help">Dozokit Sites {version}. Updates: see github.com/dozokit/sites.</p>
+        <p className="help">Dozokit Sites {version}.</p>
         <button
           type="button"
           className="btn btn--quiet"

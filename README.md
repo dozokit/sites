@@ -22,11 +22,11 @@ A few things you may want later:
 - **Messages from a contact form by email**, through your own free Resend account: Settings → Messages by email.
 - **Visitor counts** with [Dozokit Analytics](https://github.com/dozokit/analytics): the site's Settings → Visitors.
 - **Change the password**: Settings → Password. Forgot it? In Cloudflare, open the Worker, then Settings → Variables and Secrets, and edit `PASSWORD`.
-- **Get updates**: the builder tells you when a newer version is out. [CHANGELOG.md](CHANGELOG.md) says what changed. From a terminal, in a clone of your copy:
+- **Get updates**: the builder tells you when a newer version is out. [CHANGELOG.md](CHANGELOG.md) says what changed. Add the update button once, in Settings → Account → Updates: paste your copy's address, then Commit changes on GitHub. From then on, on GitHub, Actions → Update Dozokit Sites → Run workflow. It installs the latest release, once it checks the release is signed with Dozokit's release key (a wrong or missing signature stops it and changes nothing), and keeps your `wrangler.jsonc` and the `.github` folder. Or from a terminal, in a clone of your copy:
   ```bash
   tag=$(curl -s https://api.github.com/repos/dozokit/sites/releases/latest | grep -o '"tag_name": *"[^"]*"' | cut -d'"' -f4)
   git fetch https://github.com/dozokit/sites tag "$tag"
-  git checkout "$tag" -- . ':!wrangler.jsonc'
+  git checkout "$tag" -- . ':!wrangler.jsonc' ':!.github'
   git commit -m "Update Dozokit Sites to $tag" && git push
   ```
   Cloudflare rebuilds and deploys within a couple of minutes, database changes included.

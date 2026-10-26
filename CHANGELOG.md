@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.6 – 2026-10-26
+
+- An update button: Settings → Account → Updates adds it to your copy on GitHub, then Actions → Update Dozokit Sites → Run workflow installs the latest release, once it checks the release is signed by Dozokit. A wrong or missing signature stops it and changes nothing.
+
 ## 0.1.5 – 2026-10-26
 
 - The app calls itself Dozokit Sites everywhere, instead of "the builder".
