@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.8 – 2026-10-26
+
+- Site details, in the editor bar: the phone and email (a new one replaces the old one in every button, link and block of the page, blocks Claude wrote included), the logo, the favicon and the Google Maps link.
+- Favicon: when Claude reads your current site it takes that site's own icon, and you can change it in Site details or go back to the generated one.
+
 ## 0.1.7 – 2026-10-26
 
 - Dozokit Sites speaks French: every screen, message, step-by-step guide, and the page where Claude asks your permission. It follows your browser's language; Settings → Account → Language changes it. The prompt for Claude is written in your language too.

@@ -58,7 +58,11 @@ export function Address({ site, onSite }: { site: SiteDetail; onSite: (s: SiteDe
         <h2>{t("Your own domain")}</h2>
         {site.domain ? (
           <>
-            <p className="lead">{t("Your site is on {domain}. Its other address sends visitors there.", { domain: site.domain })}</p>
+            <p className="lead">
+              {t("Your site is on {domain}. Its other address sends visitors there.", { domain: "\0" })
+                .split("\0")
+                .flatMap((part, i) => (i ? [<a key={i} href={`https://${site.domain}/`} target="_blank" rel="noopener">{site.domain}</a>, part] : [part]))}
+            </p>
             <div className="field-actions">
               <button className="btn btn--quiet" type="button" disabled={busy} onClick={() => connect("")}>
                 {t("Remove the domain")}

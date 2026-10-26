@@ -62,12 +62,12 @@ const TOOLS: Tool[] = [
   },
   {
     name: "read_website",
-    description: "Read the owner's existing website (and up to four of its pages): its text, phone and email, its colours, its logo and its photos, which are copied into the builder. The answer includes a picture of every photo, numbered, so you can see them. Use the facts and the photo ids in create_site. Free.",
+    description: "Read the owner's existing website (and up to four of its pages): its text, phone and email, its colours, its logo, its favicon (the browser-tab icon) and its photos, which are copied into the builder. Pass the logo and favicon ids on to create_site. The answer includes a picture of every photo, numbered, so you can see them. Use the facts and the photo ids in create_site. Free.",
     inputSchema: { type: "object", properties: { url: { type: "string", description: "The site's address" } }, required: ["url"] },
     run: async (a, { env, origin }) => {
       const f = await readSite(env, String(need(a.url, "The address")));
       if (!f.text) throw new AiError(`Couldn't read it: ${f.pages[0]?.why ?? "no answer"}. Ask the owner to paste the facts instead.`);
-      const found = { pages: f.pages.map((p) => p.url), text: f.text.slice(0, 20_000), phones: f.phones, emails: f.emails, language: f.lang, brand_colours: f.colors, brand_palettes: brandPalettes(f.colors), logo: f.logo, photos: f.photos.map((id, i) => ({ number: i + 1, id, url: `${origin}/img/${id}` })) };
+      const found = { pages: f.pages.map((p) => p.url), text: f.text.slice(0, 20_000), phones: f.phones, emails: f.emails, language: f.lang, brand_colours: f.colors, brand_palettes: brandPalettes(f.colors), logo: f.logo, favicon: f.favicon, photos: f.photos.map((id, i) => ({ number: i + 1, id, url: `${origin}/img/${id}` })) };
       // The photos come back as a picture too, numbered as in the list: chat apps rarely open them on their own.
       const ids = [...f.photos, ...(f.logo ? [f.logo] : [])].slice(0, 13);
       if (!ids.length) return found;
@@ -84,6 +84,7 @@ const TOOLS: Tool[] = [
         site: { type: "object", description: "The whole site, in the shape from get_writing_guide" },
         style: { type: "object", description: '{ "layout": a layout or "custom", "palette": { paper, ink, accent, soft } (e.g. one of the brand_palettes from read_website), "fonts", "css" }: see design in get_writing_guide' },
         logo: { type: "string", description: "The logo id from read_website, if any" },
+        favicon: { type: "string", description: "The favicon id from read_website, if any: the old site's own icon for the browser tab" },
         photos: { type: "array", items: { type: "string" }, description: "All photo ids from read_website, so the unused ones stay in the site's photo library" },
       },
       required: ["site"],
@@ -97,6 +98,7 @@ const TOOLS: Tool[] = [
       const style = styleOf({ layout: "custom", ...(doc.theme ?? {}), ...((a.style as object) ?? {}) });
       if (style) doc.theme = style;
       if (typeof a.logo === "string") doc.business.logo = a.logo;
+      if (typeof a.favicon === "string") doc.business.favicon = a.favicon;
       const why = problem(doc);
       if (why) throw new AiError(`That site can't be saved: ${why} Fix it and call create_site again.`);
       const row = await newSite(env, doc.business.name);

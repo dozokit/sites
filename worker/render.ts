@@ -198,7 +198,7 @@ ${doc.langs.length > 1 ? doc.langs.map((l) => `<link rel="alternate" hreflang="$
 <meta property="og:description" content="${esc(c.description)}">
 <meta property="og:url" content="${esc(canonical)}">
 ${x.edit ? '<meta name="robots" content="noindex">' : ""}
-<link rel="icon" href="${esc(x.base ?? "")}/favicon.svg" type="image/svg+xml">
+${doc.business.favicon ? `<link rel="icon" href="/img/${esc(encodeURIComponent(doc.business.favicon))}">` : `<link rel="icon" href="${esc(x.base ?? "")}/favicon.svg" type="image/svg+xml">`}
 <link rel="preconnect" href="https://fonts.bunny.net">
 <link rel="stylesheet" href="https://fonts.bunny.net/css?family=${esc(fonts)}&display=swap">
 <style>${css(doc)}</style>

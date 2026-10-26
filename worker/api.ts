@@ -13,7 +13,7 @@ const json = (data: unknown, status = 200) => Response.json(data, { status });
 const body = async (req: Request) => (await req.json().catch(() => ({}))) as Record<string, unknown>;
 
 // This copy's release. Raise it with each tag on github.com/dozokit/sites and its CHANGELOG.md entry.
-const VERSION = "0.1.7";
+const VERSION = "0.1.8";
 
 // Where a site can be visited: its domain, else the builder's address (the first site at the
 // root, the others under /<slug>/).
@@ -61,13 +61,26 @@ async function text(req: Request, env: Env, id: number) {
   const b = await body(req);
   const d = await draft(env, id);
   if (!d || typeof b.path !== "string") return json({ error: "Nothing to change." }, 400);
-  // A text that exists, or a photo slot (which may be empty), or the Google profile link.
-  const ok = typeof get(d.doc, b.path) === "string" || /\.image$/.test(b.path) || b.path === "business.google_url";
+  // A text that exists, a photo slot (which may be empty), or one of the business's own details.
+  const own = ["business.google_url", "business.phone", "business.email", "business.logo", "business.favicon"].includes(b.path);
+  const ok = typeof get(d.doc, b.path) === "string" || /\.image$/.test(b.path) || own;
   if (!ok) return json({ error: "Only a text or a photo can be changed this way." }, 400);
   const value = String(b.value ?? "").slice(0, 5000);
   if (/\.title$/.test(b.path) && !value.trim()) return json({ error: "A title can't be empty. To remove the whole section, ask Claude." }, 400);
+  if (b.path === "business.email" && value && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value.trim())) return json({ error: "That email address doesn't look complete." }, 400);
+  if (b.path === "business.phone" && value && !/^[+\d][\d .()-]{5,}$/.test(value.trim())) return json({ error: "Type the phone number with digits only, like 05 59 80 27 00." }, 400);
   const doc = structuredClone(d.doc) as SiteDoc;
-  set(doc, b.path, value);
+  const before = String(get(doc, b.path) ?? "");
+  set(doc, b.path, value.trim());
+  // A new phone or email replaces the old one everywhere, blocks Claude wrote included (tel: and
+  // mailto: links too, with or without the spaces).
+  if ((b.path === "business.phone" || b.path === "business.email") && before.trim() && value.trim()) {
+    const swaps: [string, string][] = [[before, value.trim()]];
+    if (b.path === "business.phone") swaps.push([before.replace(/[^\d+]/g, ""), value.trim().replace(/[^\d+]/g, "")]);
+    const walk = (o: unknown): unknown =>
+      typeof o === "string" ? swaps.reduce((t, [a, z]) => (a.length > 4 ? t.split(a).join(z) : t), o) : Array.isArray(o) ? o.map(walk) : o && typeof o === "object" ? Object.fromEntries(Object.entries(o).map(([k, v]) => [k, walk(v)])) : o;
+    doc.content = walk(doc.content) as SiteDoc["content"];
+  }
   const why = problem(doc);
   if (why) return json({ error: why }, 400);
   const note = String(b.note ?? "Text changed by you").slice(0, 200);

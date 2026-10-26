@@ -193,6 +193,8 @@ export default {
     if (!pub) return page(200, "Coming soon", "This website is being built.");
     const origin = url.origin + base;
     if (rest === "/sitemap.xml") return new Response(sitemap(pub.doc, origin, new Date(pub.at).toISOString().slice(0, 10)), { headers: { "content-type": "application/xml" } });
+    // /favicon.ico is what browsers ask for by themselves: the owner's icon when there is one.
+    if (rest === "/favicon.ico" && pub.doc.business.favicon) return Response.redirect(`${url.origin}/img/${encodeURIComponent(pub.doc.business.favicon)}`, 302);
     if (rest === "/favicon.svg" || rest === "/favicon.ico") return new Response(favicon(pub.doc), { headers: { "content-type": "image/svg+xml", "cache-control": "public, max-age=3600" } });
     if (rest === "/llms.txt") return new Response(llms(pub.doc, origin), { headers: { "content-type": "text/plain; charset=utf-8" } });
 

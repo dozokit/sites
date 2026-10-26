@@ -6,6 +6,7 @@ import { StylePicker, type Style } from "./Style";
 import { PhotoPicker } from "./Photos";
 import { ConnectSteps, PromptBox, recent } from "./Start";
 import { History } from "./Settings";
+import { Details } from "./Details";
 import { uploadPhoto } from "../lib/photos";
 
 // One pick in the preview, at the level the owner chose in its trail (see public/editor.js).
@@ -37,6 +38,7 @@ export function Editor({ site: detail, builder, onSite }: { site: SiteDetail; bu
   const [picking, setPicking] = useState(false);
   const [editing, setEditing] = useState<Pick | null>(null);
   const [history, setHistory] = useState(false);
+  const [details, setDetails] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [frame, setFrame] = useState(0);
@@ -151,8 +153,11 @@ export function Editor({ site: detail, builder, onSite }: { site: SiteDetail; bu
         <button className="btn btn--quiet" type="button" onClick={undo} disabled={Boolean(busy)}>
           {t("Undo")}
         </button>
-        <button className="btn btn--quiet" type="button" aria-pressed={history} onClick={() => setHistory(!history)}>
+        <button className="btn btn--quiet" type="button" aria-pressed={history} onClick={() => (setDetails(false), setHistory(!history))}>
           {t("History")}
+        </button>
+        <button className="btn btn--quiet" type="button" aria-pressed={details} onClick={() => (setHistory(false), setDetails(!details))}>
+          {t("Site details")}
         </button>
         <button className="btn btn--quiet" type="button" onClick={() => setStyling({ layout: String((site.theme as { layout?: string }).layout ?? "storefront"), palette: (site.theme as { palette: Style["palette"] }).palette })} disabled={Boolean(busy)}>
           {t("Style")}
@@ -168,7 +173,9 @@ export function Editor({ site: detail, builder, onSite }: { site: SiteDetail; bu
       <div className="editor-main">
         <iframe ref={iframe} key={`${lang}-${frame}`} onLoad={() => tell({ type: "mode", on: picking })} className="preview" title={t("Your site, click anything to change it")} src={`/admin/preview?site=${detail.id}&lang=${lang}`} />
 
-        {history ? (
+        {details ? (
+          <Details site={detail} save={saveText} onClose={() => setDetails(false)} message={error ? { ok: false, text: error } : saved ? { ok: true, text: saved } : null} />
+        ) : history ? (
           <aside className="chat" aria-label={t("Every version")}>
             <h2 className="chat-h">{t("Every version")}</h2>
             <p className="muted">{t("Each change is kept. Go back to any of them; the newest stays in the list.")}</p>

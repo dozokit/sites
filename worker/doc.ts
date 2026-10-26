@@ -8,7 +8,7 @@ export const SHAPE = `type SiteDoc = {
   langs: string[];                 // e.g. ["fr","en"]; the first is the main one
   business: { name: string; trade: string; town: string; address?: string; phone?: string; email?: string;
     hours?: { days: string; spec?: string; open: string; close: string }[];  // days as visitors read them, spec for Google ("Mo-Fr"), open/close "09:00"; a closed day has open "" and close ""
-    google_url?: string; socials?: string[] };
+    google_url?: string; socials?: string[]; logo?: string; favicon?: string };  // logo and favicon: image ids, as read_website returns them
   theme: { layout?: "storefront" | "split" | "trade" | "editorial" | "soft" | "custom";
     palette: { paper: string; ink: string; accent: string; soft: string };  // #rrggbb; ink on paper and white on accent must stay readable (contrast 4.5:1)
     fonts: ${Object.keys(FONTS).map((f) => `"${f}"`).join(" | ")} | { heading: string; body: string };  // or any two families from fonts.bunny.net

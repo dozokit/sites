@@ -14,6 +14,7 @@ export interface Business {
   hours?: Hours;
   google_url?: string; // the owner's Google Business Profile, for "Directions" and "Leave a review"
   logo?: string; // an image id
+  favicon?: string; // an image id for the browser tab; without one, the initial on the accent colour
   socials?: string[];
 }
 

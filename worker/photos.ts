@@ -7,12 +7,12 @@ import { draft } from "./store";
 
 export type Photo = { id: string; alt: string; type: string; bytes: number; source: string; created_at: number; used: boolean };
 
-const ID = /^[\w-]{6,40}\.(jpeg|jpg|png|webp|avif|gif)$/;
-const typeOf = (id: string) => `image/${id.split(".").pop()!.replace("jpg", "jpeg")}`;
+const ID = /^[\w-]{6,40}\.(jpeg|jpg|png|webp|avif|gif|ico)$/;
+const typeOf = (id: string) => `image/${id.split(".").pop()!.replace("jpg", "jpeg").replace("ico", "x-icon")}`;
 
-// Every photo id a site's content points at: section and item images and the logo.
+// Every photo id a site's content points at: section and item images, the logo and the favicon.
 export function used(doc: SiteDoc) {
-  const ids = new Set((JSON.stringify(doc).match(/"(?:image|logo)":"([^"/]+)"/g) ?? []).map((m) => m.split('":"')[1].slice(0, -1)));
+  const ids = new Set((JSON.stringify(doc).match(/"(?:image|logo|favicon)":"([^"/]+)"/g) ?? []).map((m) => m.split('":"')[1].slice(0, -1)));
   return [...ids].filter((id) => ID.test(id));
 }
 

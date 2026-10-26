@@ -169,3 +169,12 @@ textarea { resize: vertical; }
 
 .first-steps .address-line { margin-top: var(--space-2xs); }
 .qa.notice { border-left: 3px solid #e8590c; padding-left: var(--space-sm); }
+
+/* Site details panel */
+.detail-h { font-size: var(--text-sm); margin: var(--space-sm) 0 0; }
+.detail-image { display: grid; gap: var(--space-2xs); }
+.detail-thumb { display: grid; place-items: center; min-height: 56px; border: 1px dashed var(--color-rule-2); border-radius: var(--radius-input); background: var(--color-cotton); padding: var(--space-2xs); }
+.detail-thumb img { max-height: 56px; max-width: 100%; width: auto; }
+.detail-thumb--favicon { width: 56px; height: 56px; min-height: 0; padding: 4px; font-weight: 700; font-size: 1.4rem; }
+.detail-thumb--favicon img { max-height: 44px; }
+.detail-thumb em { font-style: normal; color: var(--color-muted); font-size: var(--text-xs); }
