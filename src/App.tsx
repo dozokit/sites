@@ -14,13 +14,16 @@ import { Start } from "./pages/Start";
 // setupNeeded: deployed without a usable PASSWORD, so the builder stays shut until one is set.
 type Auth = { signedIn: boolean; passwordRequired: boolean; setupNeeded: string | null };
 type Tab = "site" | "photos" | "address" | "messages" | "settings";
-type View = { kind: "home" } | { kind: "new" } | { kind: "settings" } | { kind: "site"; id: number; tab: Tab };
+type View = { kind: "home" } | { kind: "new" } | { kind: "settings"; part?: string } | { kind: "site"; id: number; tab: Tab };
+const PARTS = ["connections", "help", "account"];
 
 // The address keeps the place: #new, #settings, #site/3, #site/3/messages.
 const read = (): View => {
   const h = location.hash.slice(1).split("/");
   if (h[0] === "new") return { kind: "new" };
-  if (h[0] === "settings") return { kind: "settings" };
+  // #settings/help opens Settings at that group; a bare #help (older links) does too.
+  if (h[0] === "settings") return { kind: "settings", part: PARTS.includes(h[1]) ? h[1] : undefined };
+  if (PARTS.includes(h[0])) return { kind: "settings", part: h[0] };
   if (h[0] === "site" && Number(h[1])) return { kind: "site", id: Number(h[1]), tab: (["photos", "address", "messages", "settings"].includes(h[2]) ? h[2] : "site") as Tab };
   return { kind: "home" };
 };
@@ -122,7 +125,7 @@ export function App() {
                 {tab("photos", "Photos")}
                 {tab("address", "Address")}
                 {tab("messages", site.unread ? `Messages (${site.unread})` : "Messages")}
-                {tab("settings", "Settings")}
+                {tab("settings", "Site settings")}
               </>
             ) : (
               <a href="#settings" className="nav-link" aria-current={view.kind === "settings" ? "page" : undefined} onClick={(e) => (e.preventDefault(), go({ kind: "settings" }))}>
@@ -130,10 +133,18 @@ export function App() {
               </a>
             )}
           </nav>
-          {view.kind === "site" && site?.published && (
-            <a className="topbar-end nav-link" href={site.address + "/"} target="_blank" rel="noopener">
-              Open the site ↗
-            </a>
+          {view.kind === "site" && (
+            <span className="topbar-end">
+              {site?.published && (
+                <a className="nav-link" href={site.address + "/"} target="_blank" rel="noopener">
+                  Open the site ↗
+                </a>
+              )}
+              {/* The settings every site shares, reachable from inside a site too. */}
+              <a href="#settings" className="nav-link" onClick={(e) => (e.preventDefault(), go({ kind: "settings" }))}>
+                Settings
+              </a>
+            </span>
           )}
         </div>
       </header>
@@ -141,7 +152,7 @@ export function App() {
       {error && <p className="toast help--error" role="alert">{error}</p>}
       {view.kind === "home" && <main className="container main"><Home state={state} onOpen={(id) => go({ kind: "site", id, tab: "site" })} onNew={() => go({ kind: "new" })} /></main>}
       {view.kind === "new" && start}
-      {view.kind === "settings" && <main className="container main"><BuilderSettings state={state} onState={setState} passwordRequired={auth.passwordRequired} version={release?.version} /></main>}
+      {view.kind === "settings" && <main className="container main"><BuilderSettings state={state} onState={setState} passwordRequired={auth.passwordRequired} version={release?.version} part={view.part} /></main>}
       {view.kind === "site" && !site && <main className="container main"><p className="help">Loading…</p></main>}
       {view.kind === "site" && site && (
         <>

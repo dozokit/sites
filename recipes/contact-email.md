@@ -3,7 +3,7 @@ id: contact-email
 title: Get your contact messages
 when: they ask where contact form messages go, want messages or a notification by email, want a contact form or a contact button, or ask how customers can write to them
 ---
-I've added a contact form and a **Write to us** button at the top of your page (if you didn't have them yet). Every message lands in **Messages** in this builder, with the name, email and phone of the person.
+I've added a contact form and a **Write to us** button at the top of your page (if you didn't have them yet). Every message lands in **Messages** in Dozokit Sites, with the name, email and phone of the person.
 
 To also get each message by email (free, about 2 minutes):
 

@@ -13,7 +13,7 @@ const json = (data: unknown, status = 200) => Response.json(data, { status });
 const body = async (req: Request) => (await req.json().catch(() => ({}))) as Record<string, unknown>;
 
 // This copy's release. Raise it with each tag on github.com/dozokit/sites and its CHANGELOG.md entry.
-const VERSION = "0.1.4";
+const VERSION = "0.1.5";
 
 // Where a site can be visited: its domain, else the builder's address (the first site at the
 // root, the others under /<slug>/).
@@ -116,8 +116,8 @@ export async function setDomain(env: Env, id: number, raw: string) {
   if ((await sites(env, true)).some((s) => s.domain === domain && s.id !== id)) throw new AiError("Another of your sites already uses that domain.");
   const nonce = crypto.randomUUID().slice(0, 8);
   const res = await fetch(`https://${domain}${CHECK}?n=${nonce}`, { redirect: "manual", signal: AbortSignal.timeout(8000) }).catch(() => null);
-  if (!res) throw new AiError(`No answer from ${domain} yet. In Cloudflare, open Workers & Pages → your builder → Domains and add it there; it can take a few minutes after that.`);
-  if (res.headers.get("x-dozokit-sites") !== nonce) throw new AiError(`${domain} doesn't lead to this site builder yet. In Cloudflare, open Workers & Pages → your builder → Domains and add it there.`);
+  if (!res) throw new AiError(`No answer from ${domain} yet. In Cloudflare, open Workers & Pages → dozokit-sites → Domains and add it there; it can take a few minutes after that.`);
+  if (res.headers.get("x-dozokit-sites") !== nonce) throw new AiError(`${domain} doesn't lead to your Dozokit Sites yet. In Cloudflare, open Workers & Pages → dozokit-sites → Domains and add it there.`);
   await updateSite(env, id, { domain });
 }
 

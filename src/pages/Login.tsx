@@ -23,7 +23,7 @@ export function Login({ onDone }: { onDone: () => void }) {
           }
         }}
       >
-        <h1>Sign in to your site builder</h1>
+        <h1>Sign in to Dozokit Sites</h1>
         <label className="field">
           <span>Password</span>
           <input

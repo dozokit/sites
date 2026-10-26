@@ -78,7 +78,7 @@ export function SiteSettings({ site, builder, onSite, onDeleted }: { site: SiteD
         help={
           builder.analytics_url
             ? "Count this site's visitors and contact messages with Dozokit Analytics: add this site there, then paste its site id."
-            : "Count this site's visitors with Dozokit Analytics, free, in your own Cloudflare account too. First type its address once in the builder's Settings → Connections, then paste this site's id here."
+            : "Count this site's visitors with Dozokit Analytics, free, in your own Cloudflare account too. First type its address once in Settings (top right) → Connections, then paste this site's id here."
         }
         onSave={async () => onSite(await api<SiteDetail>(`${at}/settings`, { method: "PUT", body: JSON.stringify({ analytics_site: statsId }) }))}
       >
@@ -124,7 +124,7 @@ export function SiteSettings({ site, builder, onSite, onDeleted }: { site: SiteD
 }
 
 // What every site shares: the chat apps, email, help, the maker, the password.
-export function BuilderSettings({ state, onState, passwordRequired, version }: { state: State; onState: (s: State) => void; passwordRequired: boolean; version?: string }) {
+export function BuilderSettings({ state, onState, passwordRequired, version, part }: { state: State; onState: (s: State) => void; passwordRequired: boolean; version?: string; part?: string }) {
   const [mailTo, setMailTo] = useState(state.email.to);
   const [statsUrl, setStatsUrl] = useState(state.analytics_url);
   const [test, setTest] = useState<{ ok: boolean; text: string } | null>(null);
@@ -132,21 +132,30 @@ export function BuilderSettings({ state, onState, passwordRequired, version }: {
   useEffect(() => {
     api<Recipe[]>("/api/recipes").then(setRecipes, () => {});
   }, []);
+  // Opened at a group (#settings/help): scroll there once the page is drawn.
+  useEffect(() => {
+    if (part) document.getElementById(part)?.scrollIntoView();
+  }, [part]);
+  const jump = (id: string) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    history.replaceState(null, "", `#settings/${id}`);
+    document.getElementById(id)?.scrollIntoView();
+  };
   const put = async (data: object) => onState(await api<State>("/api/settings", { method: "PUT", body: JSON.stringify(data) }));
   const mail = `mailto:contact@dozokit.com?subject=${encodeURIComponent("Dozokit Sites: an idea or a question")}&body=${encodeURIComponent(`Version ${version ?? "?"}\n\nWhat I wanted to do:\n\nWhat happened:\n`)}`;
 
   return (
     <div className="settings-grid">
       <nav className="settings-nav" aria-label="Settings">
-        <a href="#connections">Connections</a>
-        <a href="#help">Help</a>
-        <a href="#account">Account</a>
+        <a href="#settings/connections" onClick={jump("connections")}>Connections</a>
+        <a href="#settings/help" onClick={jump("help")}>Help</a>
+        <a href="#settings/account" onClick={jump("account")}>Account</a>
       </nav>
     <div className="settings">
       <h2 className="group-h" id="connections">Connections</h2>
       <section className="page-section">
         <h2>Claude and other chat apps</h2>
-        <p className="lead">Claude (or ChatGPT) builds and changes your sites on your own plan, through this builder's connector.</p>
+        <p className="lead">Claude (or ChatGPT) builds and changes your sites on your own plan, through the Dozokit Sites connector.</p>
         <details className="qa" open={state.chat_apps.length === 0}>
           <summary>How to connect Claude</summary>
           <ConnectSteps />

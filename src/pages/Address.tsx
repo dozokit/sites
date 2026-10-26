@@ -78,10 +78,10 @@ export function Address({ site, onSite }: { site: SiteDetail; onSite: (s: SiteDe
             {have === "none" && (
               <ol className="first-steps">
                 <li>
-                  <Workers>Open your builder in Cloudflare</Workers>, click <strong>dozokit-sites</strong> (the name you gave it), then the <strong>Domains</strong> tab.
+                  <Workers>Open Workers &amp; Pages in Cloudflare</Workers>, click <strong>dozokit-sites</strong> (the name you gave it), then the <strong>Domains</strong> tab.
                 </li>
                 <li>
-                  Choose <strong>Buy a domain</strong>. Cloudflare sells it at cost price, about $10 a year for a .com, and connects it to your builder by itself.
+                  Choose <strong>Buy a domain</strong>. Cloudflare sells it at cost price, about $10 a year for a .com, and connects it to Dozokit Sites by itself.
                 </li>
                 <li>Type it below and click Check and connect.</li>
               </ol>
@@ -96,7 +96,7 @@ export function Address({ site, onSite }: { site: SiteDetail; onSite: (s: SiteDe
                 </li>
                 <li>Where you bought it (OVH, GoDaddy, IONOS…), replace its nameservers with the two Cloudflare shows. It takes from a few minutes to a day; Cloudflare emails you when it's done.</li>
                 <li>
-                  <Workers>Open your builder in Cloudflare</Workers>, click <strong>dozokit-sites</strong>, then <strong>Domains</strong>, and add your domain as an existing domain.
+                  <Workers>Open Workers &amp; Pages in Cloudflare</Workers>, click <strong>dozokit-sites</strong>, then <strong>Domains</strong>, and add your domain as an existing domain.
                 </li>
                 <li>Type it below and click Check and connect.</li>
               </ol>
@@ -104,7 +104,7 @@ export function Address({ site, onSite }: { site: SiteDetail; onSite: (s: SiteDe
             {have === "cloudflare" && (
               <ol className="first-steps">
                 <li>
-                  <Workers>Open your builder in Cloudflare</Workers>, click <strong>dozokit-sites</strong>, then <strong>Domains</strong>, and add your domain as an existing domain.
+                  <Workers>Open Workers &amp; Pages in Cloudflare</Workers>, click <strong>dozokit-sites</strong>, then <strong>Domains</strong>, and add your domain as an existing domain.
                 </li>
                 <li>Type it below and click Check and connect.</li>
               </ol>

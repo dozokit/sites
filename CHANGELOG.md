@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.5 – 2026-10-26
+
+- The app calls itself Dozokit Sites everywhere, instead of "the builder".
+- Settings shared by all your sites are in the top bar on every page; a site's own settings are its Site settings tab.
+- Links to a part of Settings (#settings/help, #settings/account, #settings/connections) open it there, and the menu beside Settings jumps to each group.
+
 ## 0.1.4 – 2026-10-26
 
 - How to connect Claude, step by step with your builder's own address to copy: on the first screen, in Settings → Connections, and in the editor when no Claude has used your builder for 30 days.

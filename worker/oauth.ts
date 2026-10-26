@@ -57,7 +57,7 @@ export async function authorize(req: Request, env: Env, url: URL) {
   if (q.get("response_type") !== "code" || q.get("code_challenge_method") !== "S256" || !q.get("code_challenge")) return page("This connection isn't valid", "<p>The chat app has to use PKCE (S256).</p>");
   if (!(await signedIn(req, env))) {
     const back = encodeURIComponent(url.pathname + url.search);
-    return page("Sign in first", `<p>To connect ${esc(client.name)} to your site builder, sign in to it, then come back to this page.</p><p><a href="/admin?next=${back}">Sign in to your site builder</a></p>`);
+    return page("Sign in first", `<p>To connect ${esc(client.name)} to Dozokit Sites, sign in to it, then come back to this page.</p><p><a href="/admin?next=${back}">Sign in to Dozokit Sites</a></p>`);
   }
   if (req.method === "POST") {
     const form = await req.formData();
@@ -77,7 +77,7 @@ export async function authorize(req: Request, env: Env, url: URL) {
   }
   return page(
     `Connect ${esc(client.name)}?`,
-    `<p><strong>${esc(client.name)}</strong> will be able to create, change and publish the sites in this builder when you ask it to in a chat. It uses your own chat plan; nothing is charged here.</p>
+    `<p><strong>${esc(client.name)}</strong> will be able to create, change and publish your sites in Dozokit Sites when you ask it to in a chat. It uses your own chat plan; nothing is charged here.</p>
 <form method="post" style="display:flex;gap:12px;margin-top:24px"><button name="answer" value="allow" style="font:600 16px system-ui;padding:12px 20px;border:0;border-radius:8px;background:#2a2421;color:#fff;cursor:pointer">Allow</button><button name="answer" value="deny" style="font:16px system-ui;padding:12px 20px;border:1px solid #2a2421;border-radius:8px;background:none;cursor:pointer">Cancel</button></form>
 <p style="font-size:14px;color:#6b625c">You can disconnect it at any time in Settings → Chat apps.</p>`,
   );

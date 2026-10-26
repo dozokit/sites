@@ -34,7 +34,7 @@ async function client(env: Env, origin: string): Promise<Client> {
     }),
   });
   const out = (await res.json().catch(() => null)) as { client_id?: string; client_secret?: string } | null;
-  if (!res.ok || !out?.client_id) throw new Error(`Resend didn't register this site builder (${res.status}).`);
+  if (!res.ok || !out?.client_id) throw new Error(`Resend didn't register Dozokit Sites (${res.status}).`);
   const c: Client = { id: out.client_id, secret: out.client_secret, redirect };
   await setSetting(env, "resend_client", JSON.stringify(c));
   return c;

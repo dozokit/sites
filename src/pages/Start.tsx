@@ -68,9 +68,9 @@ export function ConnectSteps() {
           <AddressLine url={`${location.origin}/mcp`} />
         </li>
         <li>
-          Claude opens a page of this builder to ask your permission: sign in if asked, then click <strong>Allow</strong>.
+          Claude opens a Dozokit Sites page to ask your permission: sign in if asked, then click <strong>Allow</strong>.
         </li>
-        <li>In a new Claude chat, ask it to build or change your site. It can now use your builder.</li>
+        <li>In a new Claude chat, ask it to build or change your site. It can now use Dozokit Sites.</li>
       </ol>
       <p className="help">ChatGPT works the same way, as a custom connector in its settings. To disconnect an app, use Settings → Connections here.</p>
     </>
@@ -111,9 +111,9 @@ export function Start({ state, onState, onMade, onCancel }: { state: State; onSt
       <h1>{state.sites.length ? "A new site" : "Make your site with Claude"}</h1>
       <p>Claude designs and writes your site, using your own Claude plan. You then change any text or photo here yourself, for free, and publish when you like.</p>
 
-      <h2 className="first-step">1. Connect Claude to this builder{connected && <span className="done"> · done</span>}</h2>
+      <h2 className="first-step">1. Connect Claude to Dozokit Sites{connected && <span className="done"> · done</span>}</h2>
       {connected ? (
-        <p className="help">{using.map((a) => a.name).join(", ")} used your builder {ago(Math.max(...using.map((a) => a.last_used!)))}.</p>
+        <p className="help">{using.map((a) => a.name).join(", ")} used Dozokit Sites {ago(Math.max(...using.map((a) => a.last_used!)))}.</p>
       ) : (
         <ConnectSteps />
       )}

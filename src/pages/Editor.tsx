@@ -206,7 +206,7 @@ export function Editor({ site: detail, builder, onSite }: { site: SiteDetail; bu
           <PromptBox text={prompt(detail, lang, picks, ask)} />
           {!recent(builder).length && (
             <details className="qa notice">
-              <summary>Claude isn't connected to your builder yet</summary>
+              <summary>Claude isn't connected to Dozokit Sites yet</summary>
               <ConnectSteps />
             </details>
           )}
