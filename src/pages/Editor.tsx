@@ -3,7 +3,7 @@ import { api } from "../lib/api";
 import type { SiteDetail, State } from "../lib/types";
 import { StylePicker, type Style } from "./Style";
 import { PhotoPicker } from "./Photos";
-import { PromptBox } from "./Start";
+import { ConnectSteps, PromptBox, recent } from "./Start";
 import { History } from "./Settings";
 import { uploadPhoto } from "../lib/photos";
 
@@ -24,7 +24,7 @@ function prompt(detail: SiteDetail, lang: string, picks: Pick[], ask: string) {
   return lines.join("\n");
 }
 
-export function Editor({ site: detail, onSite }: { site: SiteDetail; onSite: (a: After) => void }) {
+export function Editor({ site: detail, builder, onSite }: { site: SiteDetail; builder: State; onSite: (a: After) => void }) {
   const site = detail.doc;
   const at = `/api/sites/${detail.id}`;
   const [lang, setLang] = useState(site.langs[0]);
@@ -204,6 +204,12 @@ export function Editor({ site: detail, onSite }: { site: SiteDetail; onSite: (a:
             <textarea rows={3} value={ask} onChange={(e) => setAsk(e.target.value)} placeholder="Make the mosaic one row on phones" />
           </label>
           <PromptBox text={prompt(detail, lang, picks, ask)} />
+          {!recent(builder).length && (
+            <details className="qa notice">
+              <summary>Claude isn't connected to your builder yet</summary>
+              <ConnectSteps />
+            </details>
+          )}
           <p className={error ? "help help--error" : "help"} role="alert">
             {error ?? saved ?? ""}
           </p>

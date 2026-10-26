@@ -163,3 +163,9 @@ textarea { resize: vertical; }
 .group-h:first-child { margin-top: 0; }
 .page-section.danger { border-left: 3px solid #b3261e; padding-left: var(--space-sm); }
 .chat-h { font-size: var(--text-md, 1.1rem); margin: 0; }
+
+.address-line { display: flex; align-items: center; gap: var(--space-2xs); margin: 0; font-weight: 600; word-break: break-all; }
+.address-line .copy { position: static; flex: none; }
+
+.first-steps .address-line { margin-top: var(--space-2xs); }
+.qa.notice { border-left: 3px solid #e8590c; padding-left: var(--space-sm); }

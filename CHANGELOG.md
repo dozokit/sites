@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.4 – 2026-10-26
+
+- How to connect Claude, step by step with your builder's own address to copy: on the first screen, in Settings → Connections, and in the editor when no Claude has used your builder for 30 days.
+- Addresses show as a plain link with a copy button, not in a box.
+
 ## 0.1.3 – 2026-10-26
 
 - Each site has an Address tab: where the site is, your own domain step by step (need one, bought elsewhere, or already on Cloudflare, each with its Cloudflare link), a Check and connect button, and the Google Maps link.

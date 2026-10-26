@@ -2,7 +2,7 @@ import { useState } from "react";
 import { api } from "../lib/api";
 import type { SiteDetail } from "../lib/types";
 import { Form } from "./Settings";
-import { PromptBox } from "./Start";
+import { AddressLine, PromptBox } from "./Start";
 
 const WORKERS = "https://dash.cloudflare.com/?to=/:account/workers-and-pages";
 const ONBOARD = "https://dash.cloudflare.com/?to=/:account/domains/overview";
@@ -49,13 +49,8 @@ export function Address({ site, onSite }: { site: SiteDetail; onSite: (s: SiteDe
     <div className="settings">
       <section className="page-section">
         <h2>Where your site is</h2>
-        <p className="lead">
-          {site.published ? "Visitors find it at this address." : "It will be at this address once you publish it."}{" "}
-          <a href={site.address + "/"} target="_blank" rel="noopener">
-            Open ↗
-          </a>
-        </p>
-        <PromptBox text={site.address} label="Your site's address" />
+        <p className="lead">{site.published ? "Visitors find it at this address:" : "It will be at this address once you publish it:"}</p>
+        <AddressLine url={site.address} href={site.address + "/"} />
       </section>
 
       <section className="page-section">

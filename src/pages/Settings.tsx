@@ -3,7 +3,7 @@ import { api } from "../lib/api";
 import { Markdown } from "../lib/markdown";
 import type { Recipe, SiteDetail, State } from "../lib/types";
 import { ChangePassword } from "./Password";
-import { ago, PromptBox } from "./Start";
+import { ago, ConnectSteps } from "./Start";
 
 type Ver = { id: number; note: string; via: string; created_at: number };
 
@@ -146,8 +146,11 @@ export function BuilderSettings({ state, onState, passwordRequired, version }: {
       <h2 className="group-h" id="connections">Connections</h2>
       <section className="page-section">
         <h2>Claude and other chat apps</h2>
-        <p className="lead">Claude (or ChatGPT) builds and changes your sites on your own plan. To connect one, add a custom connector in its settings with this address:</p>
-        <PromptBox text={`${location.origin}/mcp`} label="Connector address" />
+        <p className="lead">Claude (or ChatGPT) builds and changes your sites on your own plan, through this builder's connector.</p>
+        <details className="qa" open={state.chat_apps.length === 0}>
+          <summary>How to connect Claude</summary>
+          <ConnectSteps />
+        </details>
         {state.chat_apps.length > 0 && (
           <ul className="checks">
             {state.chat_apps.map((c) => (

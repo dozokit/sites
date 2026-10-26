@@ -145,7 +145,7 @@ export function App() {
       {view.kind === "site" && !site && <main className="container main"><p className="help">Loading…</p></main>}
       {view.kind === "site" && site && (
         <>
-          {view.tab === "site" && <Editor key={site.id} site={site} onSite={onSite} />}
+          {view.tab === "site" && <Editor key={site.id} site={site} builder={state} onSite={onSite} />}
           {view.tab === "photos" && <main className="container main"><Photos siteId={site.id} /></main>}
           {view.tab === "address" && <main className="container main"><Address site={site} onSite={onSite} /></main>}
           {view.tab === "messages" && <main className="container main"><Messages site={site} onSite={onSite} /></main>}
