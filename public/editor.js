@@ -1,21 +1,26 @@
-// Runs inside the editor's preview only. Once the owner turns picking on, anything on the page can
-// be picked, at any level, as in Broken Here's picker: a click picks the element under the mouse, ↑ / ↓ (or the trail the editor
-// shows) move to the element around it or back in, Shift+click adds more. The editor around the
-// preview gets each pick's layers, and for texts and photos the path it can change for free.
+// Runs inside the editor's preview only. Two modes, each with its own colour:
+// - Edit (the default, green): only what the owner can change themself, texts and photos, reacts;
+//   a click opens it for a free edit.
+// - Ask Claude (orange, turned on by the editor's button): anything can be picked, at any level, as
+//   in Broken Here's picker. A click picks the element under the mouse, ↑ / ↓ (or the editor's
+//   trail) move to the element around it or back in, Shift+click adds more. The editor turns the
+//   picks into a prompt for Claude.
 (function () {
-  // Picking is on only while the owner turns it on with the editor's "Pick on the page" button.
-  var on = false, picks = [], current = -1, hover = null, boxes = [];
+  var GREEN = "#1f8a4c", ORANGE = "#e8590c";
+  var on = false, picks = [], current = -1, boxes = [], editBox = null, editEl = null;
   var key = "scroll:" + location.search;
 
   function overlay(dashed) {
     var b = document.createElement("div");
     b.setAttribute("aria-hidden", "true");
-    b.style.cssText = "position:fixed;pointer-events:none;z-index:9999;border:2px " + (dashed ? "dashed" : "solid") + " #e8590c;border-radius:4px;display:none";
+    b.style.cssText = "position:fixed;pointer-events:none;z-index:9999;border:2px " + (dashed ? "dashed" : "solid") + " " + ORANGE + ";border-radius:4px;display:none";
     document.body.appendChild(b);
     return b;
   }
   var hl = overlay(true);
-  function place(b, el, tag) {
+  function place(b, el, tag, color) {
+    color = color || ORANGE;
+    b.style.borderColor = color;
     var r = el.getBoundingClientRect();
     b.style.display = "block";
     b.style.left = r.left - 3 + "px";
@@ -26,7 +31,7 @@
     if (tag) {
       var t = document.createElement("span");
       t.textContent = tag;
-      t.style.cssText = "position:absolute;left:-2px;top:-22px;background:#e8590c;color:#fff;font:600 11px/1 system-ui;padding:4px 6px;border-radius:4px 4px 4px 0;white-space:nowrap";
+      t.style.cssText = "position:absolute;left:-2px;top:-22px;background:" + color + ";color:#fff;font:600 11px/1 system-ui;padding:4px 6px;border-radius:4px 4px 4px 0;white-space:nowrap";
       b.appendChild(t);
     }
   }
@@ -46,6 +51,7 @@
     if (el.matches(".btn, [class*=btn], [class*=button]")) return "Button “" + short(el.textContent) + "”";
     if (el.tagName === "A") return "Link “" + short(el.textContent) + "”";
     if (el.matches(".topbar, body > header")) return "Top bar";
+    if (el.querySelectorAll(":scope > a, :scope > button").length > 1 && !el.matches("nav")) return "Buttons";
     // Lists and boxes are named after their class when they have one ("Gallery", "Mosaic").
     var c = (el.getAttribute("class") || "").split(/\s+/).filter(function (x) { return x && !/^(l|s|is|has)-/.test(x); })[0];
     if (NAMES[el.tagName] && !(c && /^(UL|OL|LI|DIV|FIGURE)$/.test(el.tagName))) return NAMES[el.tagName];
@@ -106,6 +112,19 @@
       rect: { x: r.left, y: r.top, w: r.width, h: r.height },
     };
   }
+  // What the owner can change themself under the pointer: a text or a photo.
+  function free(t) {
+    var el = t && t.closest ? t.closest("[data-edit]") : null;
+    return el && el.getAttribute("data-kind") !== "html" ? el : null;
+  }
+  function freeLabel(el) {
+    return el.getAttribute("data-kind") === "image" ? "Change photo · free" : "Edit text · free";
+  }
+  function sendEdit() {
+    if (!editBox) editBox = overlay(false);
+    place(editBox, editEl, freeLabel(editEl), GREEN);
+    parent.postMessage({ type: "edit", item: describe({ levels: [editEl], i: 0 }) }, location.origin);
+  }
   function send() {
     boxes.forEach(function (b) { b.remove(); });
     boxes = picks.map(function (p, k) {
@@ -117,11 +136,13 @@
   }
 
   document.addEventListener("mouseover", function (e) {
-    if (!on) return;
+    if (!on) {
+      var f = free(e.target);
+      return f ? place(hl, f, freeLabel(f), GREEN) : (hl.style.display = "none");
+    }
     var el = e.target;
     if (!el || el === document.body || el === document.documentElement || !seen(el)) return (hl.style.display = "none");
-    hover = el;
-    place(hl, el, name(el));
+    place(hl, el, name(el), ORANGE);
   });
   document.addEventListener("mouseout", function (e) {
     if (!e.relatedTarget) hl.style.display = "none";
@@ -136,7 +157,13 @@
       var a = e.target.closest && e.target.closest('a[href^="#"]');
       var to = a && a.getAttribute("href").length > 1 && document.getElementById(a.getAttribute("href").slice(1));
       if (to) to.scrollIntoView({ behavior: "smooth", block: "start" });
-      if (!on) return;
+      if (!on) {
+        var f = free(e.target);
+        if (!f) return;
+        hl.style.display = "none";
+        editEl = f;
+        return sendEdit();
+      }
       var ls = levels(e.target);
       if (!ls.length) return;
       var p = { levels: ls, i: ls.length - 1 };
@@ -177,7 +204,12 @@
     if (d.type === "mode") {
       on = Boolean(d.on);
       document.documentElement.style.cursor = on ? "crosshair" : "";
-      if (!on) hl.style.display = "none";
+      hl.style.display = "none";
+      editEl = null;
+      if (editBox) editBox.style.display = "none";
+    } else if (d.type === "unedit") {
+      editEl = null;
+      if (editBox) editBox.style.display = "none";
     } else if (d.type === "level" && picks[current]) {
       if (typeof d.i === "number") picks[current].i = Math.max(0, Math.min(picks[current].levels.length - 1, d.i));
       else return step(d.delta);
@@ -200,9 +232,13 @@
   window.addEventListener("scroll", function () {
     hl.style.display = "none";
     sessionStorage.setItem(key, String(scrollY));
-    if (picks.length && !queued) {
+    if ((picks.length || editEl) && !queued) {
       queued = true;
-      requestAnimationFrame(function () { queued = false; send(); });
+      requestAnimationFrame(function () {
+        queued = false;
+        if (picks.length) send();
+        if (editEl) sendEdit();
+      });
     }
   }, { passive: true });
   // After a change the preview reloads; it comes back where the owner was.

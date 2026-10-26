@@ -33,6 +33,7 @@ export function Editor({ site: detail, onSite }: { site: SiteDetail; onSite: (a:
   const [ask, setAsk] = useState("");
   const [saved, setSaved] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
+  const [editing, setEditing] = useState<Pick | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [frame, setFrame] = useState(0);
@@ -51,11 +52,18 @@ export function Editor({ site: detail, onSite }: { site: SiteDetail; onSite: (a:
     const on = (e: MessageEvent) => {
       if (e.origin !== location.origin || e.source !== iframe.current?.contentWindow) return;
       if (e.data?.type === "stop") return setPicking(false);
+      if (e.data?.type === "edit") {
+        const it = e.data.item as Pick;
+        setEditing((was) => {
+          if (was?.path !== it.path) setDraftText(it.kind === "text" ? it.text : "");
+          return it;
+        });
+        return setError(null);
+      }
       if (e.data?.type !== "picks") return;
       const next = e.data.items as Pick[];
       setPicks(next);
       setCurrent(e.data.current);
-      setDraftText(next[e.data.current]?.kind === "text" ? next[e.data.current].text : "");
       setError(null);
     };
     window.addEventListener("message", on);
@@ -68,6 +76,7 @@ export function Editor({ site: detail, onSite }: { site: SiteDetail; onSite: (a:
     setFrame((f) => f + 1);
     setPicks([]);
     setCurrent(-1);
+    setEditing(null);
     setBusy(null);
     if (note) setSaved(note);
   };
@@ -120,7 +129,9 @@ export function Editor({ site: detail, onSite }: { site: SiteDetail; onSite: (a:
   const changed = detail.draft !== detail.published;
   // The popover sits under what was picked, inside the preview's box.
   const box = iframe.current?.getBoundingClientRect();
-  const pop = picked && box ? { left: Math.max(8, Math.min(box.left + picked.rect.x, innerWidth - 360)), top: box.top + scrollY + picked.rect.y + picked.rect.h + 8 } : null;
+  const near = editing ?? picked;
+  const pop = near && box ? { left: Math.max(8, Math.min(box.left + near.rect.x, innerWidth - 360)), top: box.top + scrollY + near.rect.y + near.rect.h + 8 } : null;
+  const unedit = () => (setEditing(null), tell({ type: "unedit" }));
 
   return (
     <div className="editor">
@@ -152,7 +163,12 @@ export function Editor({ site: detail, onSite }: { site: SiteDetail; onSite: (a:
         <iframe ref={iframe} key={`${lang}-${frame}`} onLoad={() => tell({ type: "mode", on: picking })} className="preview" title="Your site, click anything to change it" src={`/admin/preview?site=${detail.id}&lang=${lang}`} />
 
         <aside className="chat" aria-label="Ask Claude">
-          <p className="muted">Turn on picking, then click any text or photo to change it here, for free. For anything else, pick it (Shift+click for several), say what you want, and paste the prompt in your Claude chat.</p>
+          <p className="muted">
+            <span className="dot dot--free" aria-hidden="true" /> Texts and photos outlined in green you change yourself, for free: just click them.
+          </p>
+          <p className="muted">
+            <span className="dot dot--ask" aria-hidden="true" /> For anything else (the layout, a section, the colours), point at it for Claude: the prompt below fills itself, then paste it in your Claude chat.
+          </p>
           <div className="chips">
             {picks.map((p, k) => (
               <span key={k} className={`chip${k === current ? " is-on" : ""}`}>
@@ -165,8 +181,8 @@ export function Editor({ site: detail, onSite }: { site: SiteDetail; onSite: (a:
               </span>
             ))}
           </div>
-          <button className={`btn ${picking ? "btn--ink" : "btn--quiet"}`} type="button" aria-pressed={picking} onClick={() => (picking && tell({ type: "clear" }), setPicking(!picking))}>
-            {picking ? "Done picking" : "Pick on the page"}
+          <button className={`btn btn--ask${picking ? " is-on" : ""}`} type="button" aria-pressed={picking} onClick={() => (picking && tell({ type: "clear" }), setEditing(null), setPicking(!picking))}>
+            {picking ? "Done pointing" : "Point at something for Claude"}
           </button>
           <label className="field">
             <span>What should change?</span>
@@ -179,8 +195,50 @@ export function Editor({ site: detail, onSite }: { site: SiteDetail; onSite: (a:
         </aside>
       </div>
 
-      {picked && pop && (
-        <div className="pop stock" style={{ left: pop.left, top: pop.top }} role="dialog" aria-label="What you picked">
+      {editing && pop && (
+        <div className="pop pop--free stock" style={{ left: pop.left, top: pop.top }} role="dialog" aria-label="Change it yourself, free">
+          {editing.kind === "text" && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                saveText(editing.path!, draftText, `Changed “${editing.text.slice(0, 40)}”`);
+              }}
+            >
+              <textarea autoFocus rows={Math.min(8, Math.ceil(draftText.length / 40) + 1)} value={draftText} onChange={(e) => setDraftText(e.target.value)} aria-label="Text" />
+              <div className="pop-actions">
+                <button className="btn btn--ink" type="submit" disabled={Boolean(busy) || draftText === editing.text}>
+                  Save · free
+                </button>
+                <button className="btn btn--quiet" type="button" onClick={unedit}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+          {editing.kind === "image" && (
+            <div className="pop-actions">
+              <button className="btn btn--ink" type="button" onClick={() => (setChoosing(editing.path), unedit())}>
+                Choose from your photos
+              </button>
+              <label className="btn btn--quiet">
+                Upload a new one
+                <input type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && photo(editing.path!, e.target.files[0])} />
+              </label>
+              <button className="btn btn--quiet" type="button" onClick={unedit}>
+                Cancel
+              </button>
+            </div>
+          )}
+          {editing.href && (
+            <a className="link-btn" href={editing.href} target="_blank" rel="noopener">
+              Open link ↗
+            </a>
+          )}
+        </div>
+      )}
+
+      {!editing && picked && pop && (
+        <div className="pop pop--ask stock" style={{ left: pop.left, top: pop.top }} role="dialog" aria-label="What you picked for Claude">
           <nav className="trail" aria-label="Layers">
             {picked.trail.map((t, k) => (
               <span key={k}>
@@ -191,45 +249,14 @@ export function Editor({ site: detail, onSite }: { site: SiteDetail; onSite: (a:
               </span>
             ))}
           </nav>
-          {picked.kind === "text" && (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                saveText(picked.path!, draftText, `Changed “${picked.text.slice(0, 40)}”`);
-              }}
-            >
-              <textarea autoFocus rows={Math.min(8, Math.ceil(draftText.length / 40) + 1)} value={draftText} onChange={(e) => setDraftText(e.target.value)} aria-label="Text" />
-              <div className="pop-actions">
-                <button className="btn btn--ink" type="submit" disabled={Boolean(busy) || draftText === picked.text}>
-                  Save · free
-                </button>
-              </div>
-            </form>
-          )}
-          {picked.kind === "image" && (
-            <div className="pop-actions">
-              <button className="btn btn--ink" type="button" onClick={() => (setChoosing(picked.path), tell({ type: "clear" }))}>
-                Choose from your photos
-              </button>
-              <label className="btn btn--quiet">
-                Upload a new one
-                <input type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && photo(picked.path!, e.target.files[0])} />
-              </label>
-            </div>
-          )}
-          <div className="pop-actions">
-            {picked.href && (
-              <a className="btn btn--quiet" href={picked.href} target="_blank" rel="noopener">
-                Open link ↗
-              </a>
-            )}
-            <button className="btn btn--quiet" type="button" onClick={() => tell({ type: "clear" })}>
-              Close
-            </button>
-          </div>
           <p className="help">
-            <kbd>↑</kbd> <kbd>↓</kbd> other layers · <kbd>Shift</kbd>+click to add more · or tell Claude, on the right
+            <kbd>↑</kbd> <kbd>↓</kbd> other layers · <kbd>Shift</kbd>+click to add more · say what to change on the right
           </p>
+          {picked.href && (
+            <a className="link-btn" href={picked.href} target="_blank" rel="noopener">
+              Open link ↗
+            </a>
+          )}
         </div>
       )}
 

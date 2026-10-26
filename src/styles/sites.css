@@ -141,3 +141,12 @@ textarea { resize: vertical; }
 .lib-photo:hover img, .lib-photo.is-on img { box-shadow: 0 0 0 3px var(--color-ink); }
 .lib-meta { font-size: var(--text-xs); color: var(--color-muted); }
 .lib-big { width: 100%; max-height: 50dvh; object-fit: contain; border-radius: 6px; margin-bottom: var(--space-md); background: var(--color-paper-2); }
+
+/* Editor: green for what the owner changes for free, orange for what goes to Claude */
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: baseline; }
+.dot--free { background: #1f8a4c; }
+.dot--ask { background: #e8590c; }
+.pop--free { border-top: 3px solid #1f8a4c; }
+.pop--ask { border-top: 3px solid #e8590c; }
+.btn--ask { border: 2px solid #e8590c; color: var(--color-ink); background: none; }
+.btn--ask.is-on { background: #e8590c; color: #fff; }
