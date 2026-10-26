@@ -4,6 +4,7 @@ import type { SiteDetail, State } from "../lib/types";
 import { StylePicker, type Style } from "./Style";
 import { PhotoPicker } from "./Photos";
 import { PromptBox } from "./Start";
+import { History } from "./Settings";
 import { uploadPhoto } from "../lib/photos";
 
 // One pick in the preview, at the level the owner chose in its trail (see public/editor.js).
@@ -34,6 +35,7 @@ export function Editor({ site: detail, onSite }: { site: SiteDetail; onSite: (a:
   const [saved, setSaved] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
   const [editing, setEditing] = useState<Pick | null>(null);
+  const [history, setHistory] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [frame, setFrame] = useState(0);
@@ -148,6 +150,9 @@ export function Editor({ site: detail, onSite }: { site: SiteDetail; onSite: (a:
         <button className="btn btn--quiet" type="button" onClick={undo} disabled={Boolean(busy)}>
           Undo
         </button>
+        <button className="btn btn--quiet" type="button" aria-pressed={history} onClick={() => setHistory(!history)}>
+          History
+        </button>
         <button className="btn btn--quiet" type="button" onClick={() => setStyling({ layout: String((site.theme as { layout?: string }).layout ?? "storefront"), palette: (site.theme as { palette: Style["palette"] }).palette })} disabled={Boolean(busy)}>
           Style
         </button>
@@ -162,6 +167,16 @@ export function Editor({ site: detail, onSite }: { site: SiteDetail; onSite: (a:
       <div className="editor-main">
         <iframe ref={iframe} key={`${lang}-${frame}`} onLoad={() => tell({ type: "mode", on: picking })} className="preview" title="Your site, click anything to change it" src={`/admin/preview?site=${detail.id}&lang=${lang}`} />
 
+        {history ? (
+          <aside className="chat" aria-label="Every version">
+            <h2 className="chat-h">Every version</h2>
+            <p className="muted">Each change is kept. Go back to any of them; the newest stays in the list.</p>
+            <History site={detail} onSite={(s) => done(s, "Back to an earlier version")} />
+            <button className="btn btn--quiet" type="button" onClick={() => setHistory(false)}>
+              Close
+            </button>
+          </aside>
+        ) : (
         <aside className="chat" aria-label="Ask Claude">
           <p className="muted">
             <span className="dot dot--free" aria-hidden="true" /> Texts and photos outlined in green you change yourself, for free: just click them.
@@ -193,6 +208,7 @@ export function Editor({ site: detail, onSite }: { site: SiteDetail; onSite: (a:
             {error ?? saved ?? ""}
           </p>
         </aside>
+        )}
       </div>
 
       {editing && pop && (
@@ -295,7 +311,10 @@ export function Editor({ site: detail, onSite }: { site: SiteDetail; onSite: (a:
               >
                 Use this style · free
               </button>
-              <button className="btn btn--quiet" type="button" onClick={() => setStyling(null)}>
+              <button className="btn btn--quiet" type="button" aria-pressed={history} onClick={() => setHistory(!history)}>
+          History
+        </button>
+        <button className="btn btn--quiet" type="button" onClick={() => setStyling(null)}>
                 Cancel
               </button>
             </div>

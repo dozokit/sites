@@ -7,12 +7,13 @@ import { Home } from "./pages/Home";
 import { Login, Setup } from "./pages/Login";
 import { Messages } from "./pages/Messages";
 import { Photos } from "./pages/Photos";
+import { Address } from "./pages/Address";
 import { BuilderSettings, SiteSettings } from "./pages/Settings";
 import { Start } from "./pages/Start";
 
 // setupNeeded: deployed without a usable PASSWORD, so the builder stays shut until one is set.
 type Auth = { signedIn: boolean; passwordRequired: boolean; setupNeeded: string | null };
-type Tab = "site" | "photos" | "messages" | "settings";
+type Tab = "site" | "photos" | "address" | "messages" | "settings";
 type View = { kind: "home" } | { kind: "new" } | { kind: "settings" } | { kind: "site"; id: number; tab: Tab };
 
 // The address keeps the place: #new, #settings, #site/3, #site/3/messages.
@@ -20,7 +21,7 @@ const read = (): View => {
   const h = location.hash.slice(1).split("/");
   if (h[0] === "new") return { kind: "new" };
   if (h[0] === "settings") return { kind: "settings" };
-  if (h[0] === "site" && Number(h[1])) return { kind: "site", id: Number(h[1]), tab: (["photos", "messages", "settings"].includes(h[2]) ? h[2] : "site") as Tab };
+  if (h[0] === "site" && Number(h[1])) return { kind: "site", id: Number(h[1]), tab: (["photos", "address", "messages", "settings"].includes(h[2]) ? h[2] : "site") as Tab };
   return { kind: "home" };
 };
 const write = (v: View) => history.replaceState(null, "", v.kind === "home" ? location.pathname : v.kind === "site" ? `#site/${v.id}${v.tab === "site" ? "" : `/${v.tab}`}` : `#${v.kind}`);
@@ -119,6 +120,7 @@ export function App() {
                 <span className="nav-site">{site.doc.business.name}</span>
                 {tab("site", "Edit")}
                 {tab("photos", "Photos")}
+                {tab("address", "Address")}
                 {tab("messages", site.unread ? `Messages (${site.unread})` : "Messages")}
                 {tab("settings", "Settings")}
               </>
@@ -145,6 +147,7 @@ export function App() {
         <>
           {view.tab === "site" && <Editor key={site.id} site={site} onSite={onSite} />}
           {view.tab === "photos" && <main className="container main"><Photos siteId={site.id} /></main>}
+          {view.tab === "address" && <main className="container main"><Address site={site} onSite={onSite} /></main>}
           {view.tab === "messages" && <main className="container main"><Messages site={site} onSite={onSite} /></main>}
           {view.tab === "settings" && <main className="container main"><SiteSettings site={site} builder={state} onSite={onSite} onDeleted={(s) => (setState(s), go({ kind: "home" }))} /></main>}
         </>

@@ -18,7 +18,7 @@ You need a free Cloudflare account, a GitHub (or GitLab) account and a Claude ac
 
 A few things you may want later:
 
-- **Your own domain**, such as `martin-plomberie.fr`: in Cloudflare, open the Worker, then Settings → Domains & Routes → Add → Custom domain. Then type it in the site's Settings in the builder. Several sites can live in one builder, each on its own domain.
+- **Your own domain**, such as `martin-plomberie.fr`: the site's **Address** tab walks you through it, whether you need to buy one, have one elsewhere or have one on Cloudflare (in Cloudflare it's the Worker's **Domains** tab), then checks it and connects it. Claude can connect it too. Several sites can live in one builder, each on its own domain.
 - **Messages from a contact form by email**, through your own free Resend account: Settings → Messages by email.
 - **Visitor counts** with [Dozokit Analytics](https://github.com/dozokit/analytics): the site's Settings → Visitors.
 - **Change the password**: Settings → Password. Forgot it? In Cloudflare, open the Worker, then Settings → Variables and Secrets, and edit `PASSWORD`.

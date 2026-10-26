@@ -150,3 +150,16 @@ textarea { resize: vertical; }
 .pop--ask { border-top: 3px solid #e8590c; }
 .btn--ask { border: 2px solid #e8590c; color: var(--color-ink); background: none; }
 .btn--ask.is-on { background: #e8590c; color: #fff; }
+
+/* Settings: groups with a small menu beside them on wide screens */
+.settings-grid { display: grid; gap: var(--space-md); }
+@media (min-width: 900px) { .settings-grid { grid-template-columns: 11rem minmax(0, 1fr); } .settings-nav { position: sticky; top: 5rem; align-self: start; } }
+.settings-nav { display: flex; flex-wrap: wrap; gap: var(--space-2xs) var(--space-sm); }
+@media (min-width: 900px) { .settings-nav { flex-direction: column; } }
+.settings-nav a { color: var(--color-muted); text-decoration: none; padding: 4px 0; }
+.settings-nav a:hover { color: var(--color-ink); }
+.group-h { font-size: var(--text-lg, 1.35rem); color: var(--color-ink); font-weight: 700; margin: var(--space-xl, 3rem) 0 0; padding-top: var(--space-md); border-top: 2px solid var(--color-rule-2); max-width: none; width: 100%; scroll-margin-top: 5rem; }
+.group-h + .page-section, .group-h + form { margin-top: var(--space-sm); }
+.group-h:first-child { margin-top: 0; }
+.page-section.danger { border-left: 3px solid #b3261e; padding-left: var(--space-sm); }
+.chat-h { font-size: var(--text-md, 1.1rem); margin: 0; }

@@ -3,14 +3,14 @@ import { api } from "../lib/api";
 import { Markdown } from "../lib/markdown";
 import type { Recipe, SiteDetail, State } from "../lib/types";
 import { ChangePassword } from "./Password";
-import { ago } from "./Start";
+import { ago, PromptBox } from "./Start";
 
 type Ver = { id: number; note: string; via: string; created_at: number };
 
 const VIA = { ai: "Your AI", owner: "You", start: "First version", chat: "Claude" } as Record<string, string>;
 const when = (t: number) => new Date(t).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" });
 
-function Form({ title, children, onSave, help }: { title: string; children: React.ReactNode; onSave: () => Promise<void>; help?: React.ReactNode }) {
+export function Form({ title, children, onSave, help }: { title: string; children: React.ReactNode; onSave: () => Promise<void>; help?: React.ReactNode }) {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   return (
@@ -39,94 +39,64 @@ function Form({ title, children, onSave, help }: { title: string; children: Reac
   );
 }
 
-// The settings of one site.
-export function SiteSettings({ site, builder, onSite, onDeleted }: { site: SiteDetail; builder: State; onSite: (s: SiteDetail) => void; onDeleted: (s: State) => void }) {
+// Every version of a site, newest first, for the editor's History panel.
+export function History({ site, onSite }: { site: SiteDetail; onSite: (s: SiteDetail) => void }) {
   const at = `/api/sites/${site.id}`;
-  const [domain, setDomain] = useState(site.domain ?? "");
-  const [google, setGoogle] = useState(String(site.doc.business.google_url ?? ""));
-  const [stats, setStats] = useState({ url: builder.analytics_url, site: site.analytics_site });
-  const [confirm, setConfirm] = useState("");
-  const [gone, setGone] = useState<string | null>(null);
   const [hist, setHist] = useState<{ versions: Ver[] } | null>(null);
   useEffect(() => {
     api<typeof hist>(`${at}/history`).then(setHist, () => {});
   }, [site.draft]);
+  return (
+    <ul className="versions">
+      {hist?.versions.map((v) => (
+        <li key={v.id}>
+          <span className="muted">{when(v.created_at)}</span> <strong>{VIA[v.via] ?? v.via}</strong>: {v.note}
+          {v.id === site.published && <span className="tag">live</span>}
+          {v.id !== site.draft && (
+            <button type="button" className="link-btn" onClick={async () => onSite(await api<SiteDetail>(`${at}/restore/${v.id}`, { method: "POST" }))}>
+              Go back to this
+            </button>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+// The settings of one site: what it's connected to, then what can't be undone.
+export function SiteSettings({ site, builder, onSite, onDeleted }: { site: SiteDetail; builder: State; onSite: (s: SiteDetail) => void; onDeleted: (s: State) => void }) {
+  const at = `/api/sites/${site.id}`;
+  const [statsId, setStatsId] = useState(site.analytics_site);
+  const [confirm, setConfirm] = useState("");
+  const [gone, setGone] = useState<string | null>(null);
 
   return (
     <div className="settings">
-      <Form
-        title="Your address"
-        help={
-          <>
-            Your site is at <a href={site.address + "/"} target="_blank" rel="noopener">{site.address}</a>. To use your own domain (like martin-plomberie.fr): in Cloudflare open{" "}
-            <strong>Workers &amp; Pages → this builder → Settings → Domains &amp; Routes → Add → Custom domain</strong>, add it, then type it here. Saving checks that it reaches this site first; the old
-            address then sends visitors to it. No domain yet? Ask Claude “how do I use my own domain with Dozokit Sites”.
-          </>
-        }
-        onSave={async () => onSite(await api<SiteDetail>(`${at}/settings`, { method: "PUT", body: JSON.stringify({ domain }) }))}
-      >
-        <label className="field">
-          <span>Your domain (optional)</span>
-          <input value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="martin-plomberie.fr" spellCheck={false} />
-        </label>
-      </Form>
-
-      <Form
-        title="Google Business Profile"
-        help="The link to this business on Google Maps (Share → Copy link). The site's Directions and Leave a review buttons use it."
-        onSave={async () => onSite(await api<SiteDetail>(`${at}/text`, { method: "PUT", body: JSON.stringify({ path: "business.google_url", value: google.trim(), note: "Google Business Profile link" }) }))}
-      >
-        <label className="field">
-          <span>Google Maps link</span>
-          <input value={google} onChange={(e) => setGoogle(e.target.value)} placeholder="https://maps.app.goo.gl/…" spellCheck={false} />
-        </label>
-      </Form>
-
+      <h2 className="group-h">Connections</h2>
       <Form
         title="Visitors"
-        help="Count this site's visitors and contact messages with Dozokit Analytics: free, in your own Cloudflare account too. Add this site there, then paste its site id."
-        onSave={async () => {
-          await api(`/api/settings`, { method: "PUT", body: JSON.stringify({ analytics_url: stats.url }) });
-          onSite(await api<SiteDetail>(`${at}/settings`, { method: "PUT", body: JSON.stringify({ analytics_site: stats.site }) }));
-        }}
+        help={
+          builder.analytics_url
+            ? "Count this site's visitors and contact messages with Dozokit Analytics: add this site there, then paste its site id."
+            : "Count this site's visitors with Dozokit Analytics, free, in your own Cloudflare account too. First type its address once in the builder's Settings → Connections, then paste this site's id here."
+        }
+        onSave={async () => onSite(await api<SiteDetail>(`${at}/settings`, { method: "PUT", body: JSON.stringify({ analytics_site: statsId }) }))}
       >
         <label className="field">
-          <span>Dozokit Analytics address (the same for all your sites)</span>
-          <input value={stats.url} onChange={(e) => setStats({ ...stats, url: e.target.value })} placeholder="https://dozokit-analytics.your-name.workers.dev" spellCheck={false} />
-        </label>
-        <label className="field">
-          <span>This site's id there</span>
-          <input value={stats.site} onChange={(e) => setStats({ ...stats, site: e.target.value })} spellCheck={false} />
+          <span>This site's id in Dozokit Analytics</span>
+          <input value={statsId} onChange={(e) => setStatsId(e.target.value)} spellCheck={false} />
         </label>
       </Form>
 
+      <h2 className="group-h">Keep or remove</h2>
       <section className="page-section">
-        <h2>Every version of this site</h2>
-        <p className="lead">Each change is kept. Go back to any of them; the newest stays in the list.</p>
-        <ul className="versions">
-          {hist?.versions.map((v) => (
-            <li key={v.id}>
-              <span>{when(v.created_at)}</span> <strong>{VIA[v.via] ?? v.via}</strong>: {v.note}{" "}
-              <span className="muted">{VIA[v.via] ?? ""}</span>
-              {v.id === site.published && <span className="tag">live</span>}
-              {v.id !== site.draft && (
-                <button type="button" className="link-btn" onClick={async () => onSite(await api<SiteDetail>(`${at}/restore/${v.id}`, { method: "POST" }))}>
-                  Go back to this
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="page-section">
-        <h2>This site's files</h2>
-        <p className="lead">Download it as plain files (HTML, photos, sitemap) to keep a copy or host it anywhere else.</p>
+        <h2>Download this site</h2>
+        <p className="lead">As plain files (HTML, photos, sitemap), to keep a copy or host it anywhere else.</p>
         <a className="btn btn--card" href={`${at}/download`}>Download a .zip</a>
       </section>
 
       <form
-        className="page-section"
+        className="page-section danger"
         onSubmit={async (e) => {
           e.preventDefault();
           try {
@@ -156,6 +126,7 @@ export function SiteSettings({ site, builder, onSite, onDeleted }: { site: SiteD
 // What every site shares: the chat apps, email, help, the maker, the password.
 export function BuilderSettings({ state, onState, passwordRequired, version }: { state: State; onState: (s: State) => void; passwordRequired: boolean; version?: string }) {
   const [mailTo, setMailTo] = useState(state.email.to);
+  const [statsUrl, setStatsUrl] = useState(state.analytics_url);
   const [test, setTest] = useState<{ ok: boolean; text: string } | null>(null);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   useEffect(() => {
@@ -165,11 +136,18 @@ export function BuilderSettings({ state, onState, passwordRequired, version }: {
   const mail = `mailto:contact@dozokit.com?subject=${encodeURIComponent("Dozokit Sites: an idea or a question")}&body=${encodeURIComponent(`Version ${version ?? "?"}\n\nWhat I wanted to do:\n\nWhat happened:\n`)}`;
 
   return (
+    <div className="settings-grid">
+      <nav className="settings-nav" aria-label="Settings">
+        <a href="#connections">Connections</a>
+        <a href="#help">Help</a>
+        <a href="#account">Account</a>
+      </nav>
     <div className="settings">
+      <h2 className="group-h" id="connections">Connections</h2>
       <section className="page-section">
-        <h2>Chat apps</h2>
+        <h2>Claude and other chat apps</h2>
         <p className="lead">Claude (or ChatGPT) builds and changes your sites on your own plan. To connect one, add a custom connector in its settings with this address:</p>
-        <p><code className="connector">{location.origin}/mcp</code></p>
+        <PromptBox text={`${location.origin}/mcp`} label="Connector address" />
         {state.chat_apps.length > 0 && (
           <ul className="checks">
             {state.chat_apps.map((c) => (
@@ -238,8 +216,20 @@ export function BuilderSettings({ state, onState, passwordRequired, version }: {
         </form>
       </section>
 
+      <Form
+        title="Visitors"
+        help="Your Dozokit Analytics address, the same for all your sites. Each site's own id goes in its Settings."
+        onSave={async () => put({ analytics_url: statsUrl })}
+      >
+        <label className="field">
+          <span>Dozokit Analytics address</span>
+          <input value={statsUrl} onChange={(e) => setStatsUrl(e.target.value)} placeholder="https://dozokit-analytics.your-name.workers.dev" spellCheck={false} />
+        </label>
+      </Form>
+
+      <h2 className="group-h" id="help">Help</h2>
       <section className="page-section">
-        <h2>Help</h2>
+        <h2>Step by step</h2>
         {recipes.map((r) => (
           <details key={r.id} className="qa" id={r.id}>
             <summary>{r.title}</summary>
@@ -254,6 +244,7 @@ export function BuilderSettings({ state, onState, passwordRequired, version }: {
         <a className="btn btn--card" href={mail}>Write to Ludo</a>
       </section>
 
+      <h2 className="group-h" id="account">Account</h2>
       {passwordRequired && (
         <section className="page-section">
           <ChangePassword />
@@ -262,7 +253,7 @@ export function BuilderSettings({ state, onState, passwordRequired, version }: {
 
       <section className="page-section">
         <h2>Version</h2>
-        <p className="help">Dozokit Sites {version}.</p>
+        <p className="help">Dozokit Sites {version}. Updates: see github.com/dozokit/sites.</p>
         <button
           type="button"
           className="btn btn--quiet"
@@ -274,6 +265,7 @@ export function BuilderSettings({ state, onState, passwordRequired, version }: {
           Sign out
         </button>
       </section>
+    </div>
     </div>
   );
 }
