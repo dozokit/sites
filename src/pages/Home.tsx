@@ -1,3 +1,4 @@
+import { lang, t } from "../lib/i18n";
 import type { State } from "../lib/types";
 
 // Every site in this builder, newest change first, with what waits on the owner.
@@ -6,13 +7,13 @@ export function Home({ state, onOpen, onNew }: { state: State; onOpen: (id: numb
   return (
     <section className="page-section">
       <div className="home-head">
-        <h2>Your sites</h2>
+        <h2>{t("Your sites")}</h2>
         <button className="btn btn--ink" type="button" onClick={onNew}>
-          New site
+          {t("New site")}
         </button>
       </div>
       <p className="lead">
-        {list.length} {list.length === 1 ? "site" : "sites"}.
+        {t(list.length === 1 ? "{n} site." : "{n} sites.", { n: list.length })}
       </p>
       <ul className="sites">
         {list.map((s) => (
@@ -21,10 +22,10 @@ export function Home({ state, onOpen, onNew }: { state: State; onOpen: (id: numb
               <span className="site-name">{s.name}</span>
               <span className="site-addr">{s.address.replace(/^https?:\/\//, "")}</span>
               <span className="site-meta">
-                <span className={`tag${s.published === s.draft ? "" : " tag--todo"}`}>{!s.published ? "Not published" : s.published === s.draft ? "Live" : "Changes not published"}</span>
-                {s.unread > 0 && <span className="tag tag--todo">{s.unread} new {s.unread === 1 ? "message" : "messages"}</span>}
+                <span className={`tag${s.published === s.draft ? "" : " tag--todo"}`}>{!s.published ? t("Not published") : s.published === s.draft ? t("Live") : t("Changes not published")}</span>
+                {s.unread > 0 && <span className="tag tag--todo">{t(s.unread === 1 ? "{n} new message" : "{n} new messages", { n: s.unread })}</span>}
                 <span className="muted">
-                  Changed {new Date(s.updated_at).toLocaleDateString()}
+                  {t("Changed {date}", { date: new Date(s.updated_at).toLocaleDateString(lang) })}
                 </span>
               </span>
             </button>

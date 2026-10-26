@@ -267,7 +267,7 @@ const PROCESS = `Propose, don't interrogate. The owner should answer once, ideal
    - the sections in order, and the five sites you looked at with what you took from each,
    - if they have a site: what you carry over, and every page or section you would leave out, named, each with why in a few words (they can answer "keep it"),
    - then, as two alternatives in one line each, two other directions they could pick instead.
-   Ask only for facts you could not find and the page needs to work (a phone number for a call button, opening hours): at most three questions, and none about taste. End with "Say go, or tell me what to change."
+   If their old site books through a tool (RestoPro, TheFork, Zenchef, Calendly…), keep it: a Book button that opens their existing booking page; widgets can't be embedded, links always work. Ask only for facts you could not find and the page needs to work (a phone number for a call button, opening hours): at most three questions, and none about taste. End with "Say go, or tell me what to change."
 3. On "go" (or their changes), write it with create_site, your own CSS and your own HTML sections where the standard ones don't fit. Look at it with preview_site on desktop and phone, whole page; read the warnings it returns and answer its two review questions yourself; fix and look again (at most three rounds). Then show the owner the editor link, one screenshot's worth of what you made in words, and the list of what you left out of their old site and why.
 4. Publish only when they say so.
 If you have a design skill such as Hallmark, use it for the design: these rules are the minimum.`;

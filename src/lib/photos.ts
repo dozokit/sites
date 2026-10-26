@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { tr } from "./i18n";
 
 export type Photo = { id: string; alt: string; type: string; bytes: number; source: string; created_at: number; used: boolean };
 
@@ -14,7 +15,7 @@ export async function shrink(file: File): Promise<Blob> {
 export async function uploadPhoto(siteId: number, file: File) {
   const res = await fetch(`/api/sites/${siteId}/photos`, { method: "POST", headers: { "content-type": "image/webp" }, body: await shrink(file) });
   const out = (await res.json()) as { id?: string; photos?: Photo[]; error?: string };
-  if (!out.id) throw new Error(out.error ?? "The photo didn't upload.");
+  if (!out.id) throw new Error(tr(out.error ?? "The photo didn't upload."));
   return out as { id: string; photos: Photo[] };
 }
 

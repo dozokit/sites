@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { Markdown } from "../lib/markdown";
+import { lang, LANGS, setLang, t } from "../lib/i18n";
 import type { Recipe, SiteDetail, State } from "../lib/types";
 import { ChangePassword } from "./Password";
 import { ago, ConnectSteps } from "./Start";
@@ -9,9 +10,11 @@ import { TurnOnUpdates } from "./TurnOnUpdates";
 type Ver = { id: number; note: string; via: string; created_at: number };
 
 const VIA = { ai: "Your AI", owner: "You", start: "First version", chat: "Claude" } as Record<string, string>;
-const when = (t: number) => new Date(t).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" });
+const via = (v: string) => (VIA[v] ? t(VIA[v]) : v);
+const when = (n: number) => new Date(n).toLocaleString(lang, { dateStyle: "short", timeStyle: "short" });
 
-export function Form({ title, children, onSave, help }: { title: string; children: React.ReactNode; onSave: () => Promise<void>; help?: React.ReactNode }) {
+// saved: what to say once it worked, when it isn't live yet (a change to the page waits for Publish).
+export function Form({ title, children, onSave, help, saved }: { title: string; children: React.ReactNode; onSave: () => Promise<void>; help?: React.ReactNode; saved?: string }) {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   return (
@@ -22,7 +25,7 @@ export function Form({ title, children, onSave, help }: { title: string; childre
         setBusy(true);
         try {
           await onSave();
-          setMsg({ ok: true, text: "Saved." });
+          setMsg({ ok: true, text: saved ?? t("Saved.") });
         } catch (err) {
           setMsg({ ok: false, text: (err as Error).message });
         }
@@ -33,7 +36,7 @@ export function Form({ title, children, onSave, help }: { title: string; childre
       {help && <p className="lead">{help}</p>}
       <div className="field-stack">{children}</div>
       <div className="field-actions">
-        <button className="btn btn--ink" type="submit" disabled={busy}>{busy ? "Saving" : "Save"}</button>
+        <button className="btn btn--ink" type="submit" disabled={busy}>{busy ? t("Saving") : t("Save")}</button>
       </div>
       <p className={msg && !msg.ok ? "help help--error" : "help"} role="status">{msg?.text ?? ""}</p>
     </form>
@@ -51,11 +54,11 @@ export function History({ site, onSite }: { site: SiteDetail; onSite: (s: SiteDe
     <ul className="versions">
       {hist?.versions.map((v) => (
         <li key={v.id}>
-          <span className="muted">{when(v.created_at)}</span> <strong>{VIA[v.via] ?? v.via}</strong>: {v.note}
-          {v.id === site.published && <span className="tag">live</span>}
+          <span className="muted">{when(v.created_at)}</span> <strong>{via(v.via)}</strong>: {v.note}
+          {v.id === site.published && <span className="tag">{t("live")}</span>}
           {v.id !== site.draft && (
             <button type="button" className="link-btn" onClick={async () => onSite(await api<SiteDetail>(`${at}/restore/${v.id}`, { method: "POST" }))}>
-              Go back to this
+              {t("Go back to this")}
             </button>
           )}
         </li>
@@ -73,27 +76,27 @@ export function SiteSettings({ site, builder, onSite, onDeleted }: { site: SiteD
 
   return (
     <div className="settings">
-      <h2 className="group-h">Connections</h2>
+      <h2 className="group-h">{t("Connections")}</h2>
       <Form
-        title="Visitors"
+        title={t("Visitors")}
         help={
           builder.analytics_url
-            ? "Count this site's visitors and contact messages with Dozokit Analytics: add this site there, then paste its site id."
-            : "Count this site's visitors with Dozokit Analytics, free, in your own Cloudflare account too. First type its address once in Settings (top right) → Connections, then paste this site's id here."
+            ? t("Count this site's visitors and contact messages with Dozokit Analytics: add this site there, then paste its site id.")
+            : t("Count this site's visitors with Dozokit Analytics, free, in your own Cloudflare account too. First type its address once in Settings (top right) → Connections, then paste this site's id here.")
         }
         onSave={async () => onSite(await api<SiteDetail>(`${at}/settings`, { method: "PUT", body: JSON.stringify({ analytics_site: statsId }) }))}
       >
         <label className="field">
-          <span>This site's id in Dozokit Analytics</span>
+          <span>{t("This site's id in Dozokit Analytics")}</span>
           <input value={statsId} onChange={(e) => setStatsId(e.target.value)} spellCheck={false} />
         </label>
       </Form>
 
-      <h2 className="group-h">Keep or remove</h2>
+      <h2 className="group-h">{t("Keep or remove")}</h2>
       <section className="page-section">
-        <h2>Download this site</h2>
-        <p className="lead">As plain files (HTML, photos, sitemap), to keep a copy or host it anywhere else.</p>
-        <a className="btn btn--card" href={`${at}/download`}>Download a .zip</a>
+        <h2>{t("Download this site")}</h2>
+        <p className="lead">{t("As plain files (HTML, photos, sitemap), to keep a copy or host it anywhere else.")}</p>
+        <a className="btn btn--card" href={`${at}/download`}>{t("Download a .zip")}</a>
       </section>
 
       <form
@@ -107,16 +110,16 @@ export function SiteSettings({ site, builder, onSite, onDeleted }: { site: SiteD
           }
         }}
       >
-        <h2>Delete this site</h2>
-        <p className="lead">This removes the site, every version of it and its messages. It can't be undone: download it first if you may want it back.</p>
+        <h2>{t("Delete this site")}</h2>
+        <p className="lead">{t("This removes the site, every version of it and its messages. It can't be undone: download it first if you may want it back.")}</p>
         <div className="field-stack">
           <label className="field">
-            <span>Type “{site.doc.business.name}” to confirm</span>
+            <span>{t("Type “{name}” to confirm", { name: site.doc.business.name })}</span>
             <input value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="off" />
           </label>
         </div>
         <div className="field-actions">
-          <button className="btn btn--danger" type="submit" disabled={confirm !== site.doc.business.name}>Delete the site</button>
+          <button className="btn btn--danger" type="submit" disabled={confirm !== site.doc.business.name}>{t("Delete the site")}</button>
         </div>
         <p className="help help--error" role="alert">{gone ?? ""}</p>
       </form>
@@ -131,7 +134,7 @@ export function BuilderSettings({ state, onState, passwordRequired, version, par
   const [test, setTest] = useState<{ ok: boolean; text: string } | null>(null);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   useEffect(() => {
-    api<Recipe[]>("/api/recipes").then(setRecipes, () => {});
+    api<Recipe[]>(`/api/recipes?lang=${lang}`).then(setRecipes, () => {});
   }, []);
   // Opened at a group (#settings/help): scroll there once the page is drawn.
   useEffect(() => {
@@ -143,31 +146,31 @@ export function BuilderSettings({ state, onState, passwordRequired, version, par
     document.getElementById(id)?.scrollIntoView();
   };
   const put = async (data: object) => onState(await api<State>("/api/settings", { method: "PUT", body: JSON.stringify(data) }));
-  const mail = `mailto:contact@dozokit.com?subject=${encodeURIComponent("Dozokit Sites: an idea or a question")}&body=${encodeURIComponent(`Version ${version ?? "?"}\n\nWhat I wanted to do:\n\nWhat happened:\n`)}`;
+  const mail = `mailto:contact@dozokit.com?subject=${encodeURIComponent(t("Dozokit Sites: an idea or a question"))}&body=${encodeURIComponent(t("Version {v}\n\nWhat I wanted to do:\n\nWhat happened:\n", { v: version ?? "?" }))}`;
 
   return (
     <div className="settings-grid">
-      <nav className="settings-nav" aria-label="Settings">
-        <a href="#settings/connections" onClick={jump("connections")}>Connections</a>
-        <a href="#settings/help" onClick={jump("help")}>Help</a>
-        <a href="#settings/account" onClick={jump("account")}>Account</a>
+      <nav className="settings-nav" aria-label={t("Settings")}>
+        <a href="#settings/connections" onClick={jump("connections")}>{t("Connections")}</a>
+        <a href="#settings/help" onClick={jump("help")}>{t("Help")}</a>
+        <a href="#settings/account" onClick={jump("account")}>{t("Account")}</a>
       </nav>
     <div className="settings">
-      <h2 className="group-h" id="connections">Connections</h2>
+      <h2 className="group-h" id="connections">{t("Connections")}</h2>
       <section className="page-section">
-        <h2>Claude and other chat apps</h2>
-        <p className="lead">Claude (or ChatGPT) builds and changes your sites on your own plan, through the Dozokit Sites connector.</p>
+        <h2>{t("Claude and other chat apps")}</h2>
+        <p className="lead">{t("Claude (or ChatGPT) builds and changes your sites on your own plan, through the Dozokit Sites connector.")}</p>
         <details className="qa" open={state.chat_apps.length === 0}>
-          <summary>How to connect Claude</summary>
+          <summary>{t("How to connect Claude")}</summary>
           <ConnectSteps />
         </details>
         {state.chat_apps.length > 0 && (
           <ul className="checks">
             {state.chat_apps.map((c) => (
               <li key={c.id} className="ok">
-                {c.name} <span className="help">connected {when(c.created_at)} · {c.last_used ? `last used ${ago(c.last_used)}` : "not used yet"}</span>{" "}
+                {c.name} <span className="help">{t("connected {when}", { when: when(c.created_at) })} · {c.last_used ? t("last used {when}", { when: ago(c.last_used) }) : t("not used yet")}</span>{" "}
                 <button type="button" className="link-btn" onClick={async () => onState(await api<State>(`/api/chat-apps/${c.id}`, { method: "DELETE" }))}>
-                  Disconnect
+                  {t("Disconnect")}
                 </button>
               </li>
             ))}
@@ -176,11 +179,11 @@ export function BuilderSettings({ state, onState, passwordRequired, version, par
       </section>
 
       <section className="page-section">
-        <h2>Messages by email</h2>
+        <h2>{t("Messages by email")}</h2>
         <p className="lead">
           {state.email.connected
-            ? "Resend is connected: each message from any of your sites' contact forms also arrives in your mailbox."
-            : "Only for sites with a contact form. Get each message in your mailbox through your own free Resend account: type the email of that account, then connect it."}
+            ? t("Resend is connected: each message from any of your sites' contact forms also arrives in your mailbox.")
+            : t("Only for sites with a contact form. Get each message in your mailbox through your own free Resend account: type the email of that account, then connect it.")}
         </p>
         <form
           className="field-stack"
@@ -189,18 +192,18 @@ export function BuilderSettings({ state, onState, passwordRequired, version, par
             try {
               await put({ notify_to: mailTo });
               if (!state.email.connected) location.assign((await api<{ url: string }>("/api/resend/start", { method: "POST" })).url);
-              else setTest({ ok: true, text: "Saved." });
+              else setTest({ ok: true, text: t("Saved.") });
             } catch (err) {
               setTest({ ok: false, text: (err as Error).message });
             }
           }}
         >
           <label className="field">
-            <span>Your email (the one you use, or will use, on resend.com)</span>
-            <input type="email" required value={mailTo} onChange={(e) => setMailTo(e.target.value)} placeholder="you@example.com" />
+            <span>{t("Your email (the one you use, or will use, on resend.com)")}</span>
+            <input type="email" required value={mailTo} onChange={(e) => setMailTo(e.target.value)} placeholder={t("you@example.com")} />
           </label>
           <div className="field-actions">
-            <button className="btn btn--ink" type="submit">{state.email.connected ? "Save" : "Connect Resend"}</button>
+            <button className="btn btn--ink" type="submit">{state.email.connected ? t("Save") : t("Connect Resend")}</button>
             {state.email.connected && (
               <>
                 <button
@@ -209,40 +212,40 @@ export function BuilderSettings({ state, onState, passwordRequired, version, par
                   onClick={async () => {
                     try {
                       onState(await api<State>("/api/email/test", { method: "POST" }));
-                      setTest({ ok: true, text: `Sent. Check ${state.email.to}.` });
+                      setTest({ ok: true, text: t("Sent. Check {email}.", { email: state.email.to }) });
                     } catch (err) {
                       setTest({ ok: false, text: (err as Error).message });
                     }
                   }}
                 >
-                  Send a test
+                  {t("Send a test")}
                 </button>
                 <button type="button" className="link-btn" onClick={async () => onState(await api<State>("/api/resend", { method: "DELETE" }))}>
-                  Disconnect
+                  {t("Disconnect")}
                 </button>
               </>
             )}
           </div>
           <p className={test && !test.ok ? "help help--error" : "help"} role="status">
-            {test?.text ?? (state.email.last && state.email.last !== "200" ? "The last email didn't go through: send a test to see why." : state.email.connected ? "" : "Resend opens: sign up with that same email if you don't have an account, then click Allow.")}
+            {test?.text ?? (state.email.last && state.email.last !== "200" ? t("The last email didn't go through: send a test to see why.") : state.email.connected ? "" : t("Resend opens: sign up with that same email if you don't have an account, then click Allow."))}
           </p>
         </form>
       </section>
 
       <Form
-        title="Visitors"
-        help="Your Dozokit Analytics address, the same for all your sites. Each site's own id goes in its Settings."
+        title={t("Visitors")}
+        help={t("Your Dozokit Analytics address, the same for all your sites. Each site's own id goes in its Site settings.")}
         onSave={async () => put({ analytics_url: statsUrl })}
       >
         <label className="field">
-          <span>Dozokit Analytics address</span>
+          <span>{t("Dozokit Analytics address")}</span>
           <input value={statsUrl} onChange={(e) => setStatsUrl(e.target.value)} placeholder="https://dozokit-analytics.your-name.workers.dev" spellCheck={false} />
         </label>
       </Form>
 
-      <h2 className="group-h" id="help">Help</h2>
+      <h2 className="group-h" id="help">{t("Help")}</h2>
       <section className="page-section">
-        <h2>Step by step</h2>
+        <h2>{t("Step by step")}</h2>
         {recipes.map((r) => (
           <details key={r.id} className="qa" id={r.id}>
             <summary>{r.title}</summary>
@@ -252,12 +255,23 @@ export function BuilderSettings({ state, onState, passwordRequired, version, par
       </section>
 
       <section className="page-section">
-        <h2>Talk to the maker</h2>
-        <p className="lead">Missing something, stuck, or an idea? Write to Ludo, who builds Dozokit Sites. You get an answer by email, and the most asked things become ready-made answers in the next version.</p>
-        <a className="btn btn--card" href={mail}>Write to Ludo</a>
+        <h2>{t("Talk to the maker")}</h2>
+        <p className="lead">{t("Missing something, stuck, or an idea? Write to Ludo, who builds Dozokit Sites. You get an answer by email, and the most asked things become ready-made answers in the next version.")}</p>
+        <a className="btn btn--card" href={mail}>{t("Write to Ludo")}</a>
       </section>
 
-      <h2 className="group-h" id="account">Account</h2>
+      <h2 className="group-h" id="account">{t("Account")}</h2>
+      <section className="page-section">
+        <h2>{t("Language")}</h2>
+        <div className="seg" role="group" aria-label={t("Language")}>
+          {LANGS.map(([l, name]) => (
+            <button key={l} type="button" aria-pressed={l === lang} onClick={() => l !== lang && setLang(l)}>
+              {name}
+            </button>
+          ))}
+        </div>
+        <p className="help">{t("For these screens. Each site's own languages are set in the site itself.")}</p>
+      </section>
       {passwordRequired && (
         <section className="page-section">
           <ChangePassword />
@@ -265,12 +279,12 @@ export function BuilderSettings({ state, onState, passwordRequired, version, par
       )}
 
       <section className="page-section">
-        <h2>Updates</h2>
+        <h2 id="updates">{t("Updates")}</h2>
         <TurnOnUpdates />
       </section>
 
       <section className="page-section">
-        <h2>Version</h2>
+        <h2>{t("Version")}</h2>
         <p className="help">Dozokit Sites {version}.</p>
         <button
           type="button"
@@ -280,7 +294,7 @@ export function BuilderSettings({ state, onState, passwordRequired, version, par
             location.reload();
           }}
         >
-          Sign out
+          {t("Sign out")}
         </button>
       </section>
     </div>

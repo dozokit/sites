@@ -40,9 +40,11 @@ export async function register(req: Request, env: Env) {
   return json({ client_id: id, client_name: name, redirect_uris: uris, token_endpoint_auth_method: "none", grant_types: ["authorization_code", "refresh_token"], response_types: ["code"] }, 201);
 }
 
-const page = (title: string, body: string) =>
+// These pages are drawn here, not by the admin app: French when the browser asks for it.
+const fr = (req: Request) => /^fr\b/i.test(req.headers.get("accept-language") ?? "");
+const page = (title: string, body: string, l: "en" | "fr" = "en") =>
   new Response(
-    `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>${title}</title>` +
+    `<!doctype html><html lang="${l}"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>${title}</title>` +
       `<body style="font:16px/1.5 system-ui,sans-serif;max-width:30rem;margin:12vh auto;padding:0 1rem;color:#2a2421;background:#f6f1ec"><h1 style="font-size:1.4rem">${title}</h1>${body}</body></html>`,
     { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-frame-options": "DENY", "content-security-policy": "frame-ancestors 'none'" } },
   );
@@ -53,11 +55,16 @@ export async function authorize(req: Request, env: Env, url: URL) {
   const q = url.searchParams;
   const client = await env.DB.prepare("select * from oauth_clients where id = ?").bind(q.get("client_id") ?? "").first<{ id: string; name: string; redirect_uris: string }>();
   const redirect = q.get("redirect_uri") ?? "";
-  if (!client || !JSON.parse(client.redirect_uris).includes(redirect)) return page("This connection isn't valid", "<p>Start again from the chat app.</p>");
-  if (q.get("response_type") !== "code" || q.get("code_challenge_method") !== "S256" || !q.get("code_challenge")) return page("This connection isn't valid", "<p>The chat app has to use PKCE (S256).</p>");
+  const F = fr(req);
+  const l = F ? "fr" : "en";
+  const invalid = F ? "Cette connexion n’est pas valable" : "This connection isn't valid";
+  if (!client || !JSON.parse(client.redirect_uris).includes(redirect)) return page(invalid, F ? "<p>Recommencez depuis l’application de chat.</p>" : "<p>Start again from the chat app.</p>", l);
+  if (q.get("response_type") !== "code" || q.get("code_challenge_method") !== "S256" || !q.get("code_challenge")) return page(invalid, F ? "<p>L’application de chat doit utiliser PKCE (S256).</p>" : "<p>The chat app has to use PKCE (S256).</p>", l);
   if (!(await signedIn(req, env))) {
     const back = encodeURIComponent(url.pathname + url.search);
-    return page("Sign in first", `<p>To connect ${esc(client.name)} to Dozokit Sites, sign in to it, then come back to this page.</p><p><a href="/admin?next=${back}">Sign in to Dozokit Sites</a></p>`);
+    return F
+      ? page("Connectez-vous d’abord", `<p>Pour relier ${esc(client.name)} à Dozokit Sites, connectez-vous, puis revenez sur cette page.</p><p><a href="/admin?next=${back}">Se connecter à Dozokit Sites</a></p>`, l)
+      : page("Sign in first", `<p>To connect ${esc(client.name)} to Dozokit Sites, sign in to it, then come back to this page.</p><p><a href="/admin?next=${back}">Sign in to Dozokit Sites</a></p>`);
   }
   if (req.method === "POST") {
     const form = await req.formData();
@@ -75,11 +82,16 @@ export async function authorize(req: Request, env: Env, url: URL) {
     if (state) to.searchParams.set("state", state);
     return Response.redirect(to.href, 302);
   }
+  const name = esc(client.name);
+  const [ask, can, allow, cancel, later] = F
+    ? [`Relier ${name} ?`, `<strong>${name}</strong> pourra créer, modifier et publier vos sites dans Dozokit Sites quand vous le lui demandez dans une conversation. Il utilise votre propre abonnement ; rien n’est facturé ici.`, "Autoriser", "Annuler", "Vous pouvez le déconnecter à tout moment dans Réglages → Connexions."]
+    : [`Connect ${name}?`, `<strong>${name}</strong> will be able to create, change and publish your sites in Dozokit Sites when you ask it to in a chat. It uses your own chat plan; nothing is charged here.`, "Allow", "Cancel", "You can disconnect it at any time in Settings → Connections."];
   return page(
-    `Connect ${esc(client.name)}?`,
-    `<p><strong>${esc(client.name)}</strong> will be able to create, change and publish your sites in Dozokit Sites when you ask it to in a chat. It uses your own chat plan; nothing is charged here.</p>
-<form method="post" style="display:flex;gap:12px;margin-top:24px"><button name="answer" value="allow" style="font:600 16px system-ui;padding:12px 20px;border:0;border-radius:8px;background:#2a2421;color:#fff;cursor:pointer">Allow</button><button name="answer" value="deny" style="font:16px system-ui;padding:12px 20px;border:1px solid #2a2421;border-radius:8px;background:none;cursor:pointer">Cancel</button></form>
-<p style="font-size:14px;color:#6b625c">You can disconnect it at any time in Settings → Chat apps.</p>`,
+    ask,
+    `<p>${can}</p>
+<form method="post" style="display:flex;gap:12px;margin-top:24px"><button name="answer" value="allow" style="font:600 16px system-ui;padding:12px 20px;border:0;border-radius:8px;background:#2a2421;color:#fff;cursor:pointer">${allow}</button><button name="answer" value="deny" style="font:16px system-ui;padding:12px 20px;border:1px solid #2a2421;border-radius:8px;background:none;cursor:pointer">${cancel}</button></form>
+<p style="font-size:14px;color:#6b625c">${later}</p>`,
+    l,
   );
 }
 

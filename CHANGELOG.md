@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.7 – 2026-10-26
+
+- Dozokit Sites speaks French: every screen, message, step-by-step guide, and the page where Claude asks your permission. It follows your browser's language; Settings → Account → Language changes it. The prompt for Claude is written in your language too.
+- The Google Maps link goes online as soon as you save it, without publishing your other changes.
+- Claude keeps the booking tool a business already has (RestoPro, TheFork, Zenchef, Calendly…) with a Book button to it, instead of dropping online booking.
+- The steps to connect Claude end with "click Add". The new-version banner links to the update button.
+- Fixed: an extra History button in the Style window.
+
 ## 0.1.6 – 2026-10-26
 
 - An update button: Settings → Account → Updates adds it to your copy on GitHub, then Actions → Update Dozokit Sites → Run workflow installs the latest release, once it checks the release is signed by Dozokit. A wrong or missing signature stops it and changes nothing.

@@ -1,25 +1,26 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
+import { lang, rich, t } from "../lib/i18n";
 import type { State } from "../lib/types";
 
 // "3 minutes ago", "yesterday", in the owner's language.
 export function ago(t: number) {
   const m = Math.round((t - Date.now()) / 60_000);
-  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+  const rtf = new Intl.RelativeTimeFormat(lang, { numeric: "auto" });
   if (m > -60) return rtf.format(m, "minute");
   if (m > -1440) return rtf.format(Math.round(m / 60), "hour");
   return rtf.format(Math.round(m / 1440), "day");
 }
 
 // A small copy button, ticked for a moment once it has copied.
-export function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
+export function CopyButton({ text, label = t("Copy") }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <button
       type="button"
       className={`copy${copied ? " is-done" : ""}`}
-      aria-label={copied ? "Copied" : label}
-      title={copied ? "Copied" : label}
+      aria-label={copied ? t("Copied") : label}
+      title={copied ? t("Copied") : label}
       onClick={async () => {
         await navigator.clipboard.writeText(text);
         setCopied(true);
@@ -34,7 +35,7 @@ export function CopyButton({ text, label = "Copy" }: { text: string; label?: str
 }
 
 // A prompt to paste into Claude, always shown, with the copy button inside it.
-export function PromptBox({ text, label = "Prompt for Claude" }: { text: string; label?: string }) {
+export function PromptBox({ text, label = t("Prompt for Claude") }: { text: string; label?: string }) {
   return (
     <div className="prompt">
       <pre aria-label={label}>{text}</pre>
@@ -50,7 +51,7 @@ export function AddressLine({ url, href = url }: { url: string; href?: string })
       <a href={href} target="_blank" rel="noopener">
         {url.replace(/^https?:\/\//, "")}
       </a>
-      <CopyButton text={url} label="Copy the address" />
+      <CopyButton text={url} label={t("Copy the address")} />
     </p>
   );
 }
@@ -60,19 +61,15 @@ export function ConnectSteps() {
   return (
     <>
       <ol className="first-steps">
+        <li>{rich(t("In Claude (the app or claude.ai), open **Customize → Connectors**, click **+ Add**, then **Add custom connector**."))}</li>
         <li>
-          In Claude (the app or claude.ai), open <strong>Customize → Connectors</strong>, click <strong>+ Add</strong>, then <strong>Add custom connector</strong>.
-        </li>
-        <li>
-          Name it <strong>Dozokit Sites</strong> and paste this address:
+          {rich(t("Name it **Dozokit Sites**, paste this address, then click **Add**:"))}
           <AddressLine url={`${location.origin}/mcp`} />
         </li>
-        <li>
-          Claude opens a Dozokit Sites page to ask your permission: sign in if asked, then click <strong>Allow</strong>.
-        </li>
-        <li>In a new Claude chat, ask it to build or change your site. It can now use Dozokit Sites.</li>
+        <li>{rich(t("Claude opens a Dozokit Sites page to ask your permission: sign in if asked, then click **Allow**."))}</li>
+        <li>{t("In a new Claude chat, ask it to build or change your site. It can now use Dozokit Sites.")}</li>
       </ol>
-      <p className="help">ChatGPT works the same way, as a custom connector in its settings. To disconnect an app, use Settings → Connections here.</p>
+      <p className="help">{t("ChatGPT works the same way, as a custom connector in its settings. To disconnect an app, use Settings → Connections here.")}</p>
     </>
   );
 }
@@ -100,38 +97,39 @@ export function Start({ state, onState, onMade, onCancel }: { state: State; onSt
     return () => clearInterval(t);
   }, [known, JSON.stringify(state.chat_apps)]);
 
+  // In the owner's language, so Claude answers in it from the first message.
   const prompt = [
-    "Use Dozokit Sites to build a website for my business.",
-    url.trim() && `My current website: ${url.trim()}`,
+    t("Use Dozokit Sites to build a website for my business."),
+    url.trim() && t("My current website: {url}", { url: url.trim() }),
     about.trim(),
   ].filter(Boolean).join("\n");
 
   return (
     <section className="first stock">
-      <h1>{state.sites.length ? "A new site" : "Make your site with Claude"}</h1>
-      <p>Claude designs and writes your site, using your own Claude plan. You then change any text or photo here yourself, for free, and publish when you like.</p>
+      <h1>{state.sites.length ? t("A new site") : t("Make your site with Claude")}</h1>
+      <p>{t("Claude designs and writes your site, using your own Claude plan. You then change any text or photo here yourself, for free, and publish when you like.")}</p>
 
-      <h2 className="first-step">1. Connect Claude to Dozokit Sites{connected && <span className="done"> · done</span>}</h2>
+      <h2 className="first-step">{t("1. Connect Claude to Dozokit Sites")}{connected && <span className="done">{t(" · done")}</span>}</h2>
       {connected ? (
-        <p className="help">{using.map((a) => a.name).join(", ")} used Dozokit Sites {ago(Math.max(...using.map((a) => a.last_used!)))}.</p>
+        <p className="help">{t("{apps} used Dozokit Sites {when}.", { apps: using.map((a) => a.name).join(", "), when: ago(Math.max(...using.map((a) => a.last_used!))) })}</p>
       ) : (
         <ConnectSteps />
       )}
 
-      <h2 className="first-step">2. Paste this in a new Claude chat</h2>
+      <h2 className="first-step">{t("2. Paste this in a new Claude chat")}</h2>
       <label className="field">
-        <span>Your current website, if you have one</span>
+        <span>{t("Your current website, if you have one")}</span>
         <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="martin-plomberie.fr" inputMode="url" spellCheck={false} />
       </label>
       <label className="field">
-        <span>Anything Claude should know (optional)</span>
-        <textarea rows={3} value={about} onChange={(e) => setAbout(e.target.value)} placeholder="Turkish restaurant in Pau, wood-fired grill. I want people to book a table." />
+        <span>{t("Anything Claude should know (optional)")}</span>
+        <textarea rows={3} value={about} onChange={(e) => setAbout(e.target.value)} placeholder={t("Turkish restaurant in Pau, wood-fired grill. I want people to book a table.")} />
       </label>
       <PromptBox text={prompt} />
-      <p className="help" role="status">Claude proposes a design first and asks only what it can't find. Your new site opens here by itself once Claude has made it.</p>
+      <p className="help" role="status">{t("Claude proposes a design first and asks only what it can't find. Your new site opens here by itself once Claude has made it.")}</p>
       {onCancel && (
         <button className="btn btn--quiet" type="button" onClick={onCancel}>
-          Back to your sites
+          {t("Back to your sites")}
         </button>
       )}
     </section>

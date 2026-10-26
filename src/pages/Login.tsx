@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api } from "../lib/api";
+import { rich, t } from "../lib/i18n";
 
 export function Login({ onDone }: { onDone: () => void }) {
   const [password, setPassword] = useState("");
@@ -23,9 +24,9 @@ export function Login({ onDone }: { onDone: () => void }) {
           }
         }}
       >
-        <h1>Sign in to Dozokit Sites</h1>
+        <h1>{t("Sign in to Dozokit Sites")}</h1>
         <label className="field">
-          <span>Password</span>
+          <span>{t("Password")}</span>
           <input
             name="password"
             type="password"
@@ -39,10 +40,10 @@ export function Login({ onDone }: { onDone: () => void }) {
           />
         </label>
         <p id="login-help" className={error ? "help help--error" : "help"}>
-          {error ?? "The one you typed when you deployed, or set later in Settings."}
+          {error ?? t("The one you typed when you deployed, or set later in Settings.")}
         </p>
         <button type="submit" className="btn btn--ink" disabled={busy}>
-          {busy ? "Signing in" : "Sign in"}
+          {busy ? t("Signing in") : t("Sign in")}
         </button>
       </form>
     </main>
@@ -53,14 +54,13 @@ export function Setup({ message }: { message: string }) {
   return (
     <main className="login">
       <div className="login-card stock">
-        <h1>Set a password first</h1>
+        <h1>{t("Set a password first")}</h1>
         <p className="help">{message}</p>
         <p className="help">
-          In Cloudflare, open Workers &amp; Pages, then this Worker, then Settings → Variables and Secrets. Add a secret named <code>PASSWORD</code>{" "}
-          with 12 characters or more (or edit it if it is there), then reload this page.
+          {rich(t("In Cloudflare, open Workers & Pages, then this Worker, then Settings → Variables and Secrets. Add a secret named **PASSWORD** with 12 characters or more (or edit it if it is there), then reload this page."))}
         </p>
         <button type="button" className="btn btn--ink" onClick={() => location.reload()}>
-          Reload
+          {t("Reload")}
         </button>
       </div>
     </main>

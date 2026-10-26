@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api } from "../lib/api";
+import { t } from "../lib/i18n";
 
 export function ChangePassword() {
   const [current, setCurrent] = useState("");
@@ -11,7 +12,7 @@ export function ChangePassword() {
     <form
       onSubmit={async (e) => {
         e.preventDefault();
-        if (next !== again) return setError("The two new passwords are not the same.");
+        if (next !== again) return setError(t("The two new passwords are not the same."));
         setState("saving");
         setError(null);
         try {
@@ -26,29 +27,29 @@ export function ChangePassword() {
         }
       }}
     >
-      <h2>Change password</h2>
+      <h2>{t("Change password")}</h2>
       <div className="field-row">
         <label className="field">
-          <span>Current password</span>
+          <span>{t("Current password")}</span>
           <input name="current" type="password" autoComplete="current-password" required value={current} onChange={(e) => setCurrent(e.target.value)} />
         </label>
         <label className="field">
-          <span>New password</span>
+          <span>{t("New password")}</span>
           <input name="next" type="password" autoComplete="new-password" required minLength={12} value={next} onChange={(e) => { setNext(e.target.value); setState("idle"); }} />
         </label>
         <label className="field">
-          <span>New password again</span>
+          <span>{t("New password again")}</span>
           <input name="again" type="password" autoComplete="new-password" required minLength={12} value={again} onChange={(e) => { setAgain(e.target.value); setState("idle"); }} />
         </label>
         <button type="submit" className="btn btn--card" disabled={state === "saving"}>
-          {state === "saving" ? "Saving" : "Change password"}
+          {state === "saving" ? t("Saving") : t("Change password")}
         </button>
       </div>
       <p className={error ? "help help--error" : "help"} role={error || state === "saved" ? "status" : undefined}>
         {error ??
           (state === "saved"
-            ? "Password changed. Your other devices are signed out."
-            : "12 characters or more. Forgot it? In Cloudflare, open this Worker, then Settings → Variables and Secrets, and edit PASSWORD: that password works again.")}
+            ? t("Password changed. Your other devices are signed out.")
+            : t("12 characters or more. Forgot it? In Cloudflare, open this Worker, then Settings → Variables and Secrets, and edit PASSWORD: that password works again."))}
       </p>
     </form>
   );

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
+import { t, tr } from "../lib/i18n";
 import type { SiteDetail, State } from "../lib/types";
 import { StylePicker, type Style } from "./Style";
 import { PhotoPicker } from "./Photos";
@@ -13,14 +14,14 @@ type After = SiteDetail & { builder?: State };
 
 // What Claude needs to find each picked element: where it is in the site, its words, its photos.
 function prompt(detail: SiteDetail, lang: string, picks: Pick[], ask: string) {
-  const lines = [`In my Dozokit site ${detail.id} (${detail.doc.business.name}), ${lang.toUpperCase()} version:`];
+  const lines = [t("In my Dozokit site {id} ({name}), {lang} version:", { id: detail.id, name: detail.doc.business.name, lang: lang.toUpperCase() })];
   for (const p of picks) {
     const where = [p.path ?? p.section, p.selector].filter(Boolean).join("; ");
     const text = p.kind === "image" ? "" : p.text.slice(0, 120);
-    lines.push(`- ${p.trail.slice(0, p.i + 1).join(" › ")}${where ? ` (${where})` : ""}${text ? `: "${text}"` : ""}${p.photos.length ? ` [photos: ${p.photos.join(", ")}]` : ""}`);
+    lines.push(`- ${p.trail.slice(0, p.i + 1).join(" › ")}${where ? ` (${where})` : ""}${text ? `: "${text}"` : ""}${p.photos.length ? ` [${t("photos")}: ${p.photos.join(", ")}]` : ""}`);
   }
-  if (!picks.length) lines.push("- (click something on the page to point at it)");
-  lines.push("", ask.trim() || "(say what should change)");
+  if (!picks.length) lines.push(t("- (click something on the page to point at it)"));
+  lines.push("", ask.trim() || t("(say what should change)"));
   return lines.join("\n");
 }
 
@@ -88,7 +89,7 @@ export function Editor({ site: detail, builder, onSite }: { site: SiteDetail; bu
   };
 
   async function saveText(path: string, value: string, note: string) {
-    setBusy("Saving");
+    setBusy(t("Saving"));
     try {
       done(await api<After>(`${at}/text`, { method: "PUT", body: JSON.stringify({ path, value, note }) }), note);
     } catch (err) {
@@ -97,18 +98,18 @@ export function Editor({ site: detail, builder, onSite }: { site: SiteDetail; bu
   }
 
   async function photo(path: string, file: File) {
-    setBusy("Adding the photo");
+    setBusy(t("Adding the photo"));
     try {
-      await saveText(path, (await uploadPhoto(detail.id, file)).id, "Photo changed by you");
+      await saveText(path, (await uploadPhoto(detail.id, file)).id, t("Photo changed by you"));
     } catch (err) {
       fail(err);
     }
   }
 
   async function undo() {
-    setBusy("Undoing");
+    setBusy(t("Undoing"));
     try {
-      done(await api<After>(`${at}/undo`, { method: "POST" }), "Undone");
+      done(await api<After>(`${at}/undo`, { method: "POST" }), t("Undone"));
     } catch (err) {
       fail(err);
     }
@@ -117,7 +118,7 @@ export function Editor({ site: detail, builder, onSite }: { site: SiteDetail; bu
   // Publishing never waits on the checks: the first time they're shown as suggestions next to
   // the button, after that the site goes live at once and the suggestions stay one click away.
   async function publish(confirm: boolean) {
-    setBusy(confirm ? "Publishing" : "Checking");
+    setBusy(confirm ? t("Publishing") : t("Checking"));
     try {
       const out = await api<After & { checks: { ok: boolean; label: string; fix?: string }[]; url?: string }>(`${at}/publish`, { method: "POST", body: JSON.stringify({ confirm }) });
       if (confirm) onSite(out);
@@ -139,7 +140,7 @@ export function Editor({ site: detail, builder, onSite }: { site: SiteDetail; bu
     <div className="editor">
       <div className="editor-bar">
         {site.langs.length > 1 && (
-          <div className="seg" role="group" aria-label="Language shown">
+          <div className="seg" role="group" aria-label={t("Language shown")}>
             {site.langs.map((l) => (
               <button key={l} type="button" aria-pressed={l === lang} onClick={() => (setLang(l), setPicks([]), setCurrent(-1))}>
                 {l.toUpperCase()}
@@ -148,41 +149,41 @@ export function Editor({ site: detail, builder, onSite }: { site: SiteDetail; bu
           </div>
         )}
         <button className="btn btn--quiet" type="button" onClick={undo} disabled={Boolean(busy)}>
-          Undo
+          {t("Undo")}
         </button>
         <button className="btn btn--quiet" type="button" aria-pressed={history} onClick={() => setHistory(!history)}>
-          History
+          {t("History")}
         </button>
         <button className="btn btn--quiet" type="button" onClick={() => setStyling({ layout: String((site.theme as { layout?: string }).layout ?? "storefront"), palette: (site.theme as { palette: Style["palette"] }).palette })} disabled={Boolean(busy)}>
-          Style
+          {t("Style")}
         </button>
         <span className="editor-status" role="status">
-          {busy ? `${busy}…` : changed ? (detail.published ? "Changes not published yet" : "Not published yet") : "Published"}
+          {busy ? `${busy}…` : changed ? (detail.published ? t("Changes not published yet") : t("Not published yet")) : t("Published")}
         </span>
         <button className="btn btn--ink" type="button" onClick={() => publish(Boolean(detail.published))} disabled={Boolean(busy) || !changed}>
-          Publish
+          {t("Publish")}
         </button>
       </div>
 
       <div className="editor-main">
-        <iframe ref={iframe} key={`${lang}-${frame}`} onLoad={() => tell({ type: "mode", on: picking })} className="preview" title="Your site, click anything to change it" src={`/admin/preview?site=${detail.id}&lang=${lang}`} />
+        <iframe ref={iframe} key={`${lang}-${frame}`} onLoad={() => tell({ type: "mode", on: picking })} className="preview" title={t("Your site, click anything to change it")} src={`/admin/preview?site=${detail.id}&lang=${lang}`} />
 
         {history ? (
-          <aside className="chat" aria-label="Every version">
-            <h2 className="chat-h">Every version</h2>
-            <p className="muted">Each change is kept. Go back to any of them; the newest stays in the list.</p>
-            <History site={detail} onSite={(s) => done(s, "Back to an earlier version")} />
+          <aside className="chat" aria-label={t("Every version")}>
+            <h2 className="chat-h">{t("Every version")}</h2>
+            <p className="muted">{t("Each change is kept. Go back to any of them; the newest stays in the list.")}</p>
+            <History site={detail} onSite={(s) => done(s, t("Back to an earlier version"))} />
             <button className="btn btn--quiet" type="button" onClick={() => setHistory(false)}>
-              Close
+              {t("Close")}
             </button>
           </aside>
         ) : (
-        <aside className="chat" aria-label="Ask Claude">
+        <aside className="chat" aria-label={t("Ask Claude")}>
           <p className="muted">
-            <span className="dot dot--free" aria-hidden="true" /> Texts and photos outlined in green you change yourself, for free: just click them.
+            <span className="dot dot--free" aria-hidden="true" /> {t("Texts and photos outlined in green you change yourself, for free: just click them.")}
           </p>
           <p className="muted">
-            <span className="dot dot--ask" aria-hidden="true" /> For anything else (the layout, a section, the colours), point at it for Claude: the prompt below fills itself, then paste it in your Claude chat.
+            <span className="dot dot--ask" aria-hidden="true" /> {t("For anything else (the layout, a section, the colours), point at it for Claude: the prompt below fills itself, then paste it in your Claude chat.")}
           </p>
           <div className="chips">
             {picks.map((p, k) => (
@@ -190,23 +191,23 @@ export function Editor({ site: detail, builder, onSite }: { site: SiteDetail; bu
                 <button type="button" className="chip-name" onClick={() => tell({ type: "current", k })}>
                   {p.trail[p.i]}
                 </button>
-                <button type="button" aria-label={`Remove ${p.trail[p.i]}`} onClick={() => tell({ type: "unpick", k })}>
+                <button type="button" aria-label={t("Remove {name}", { name: p.trail[p.i] })} onClick={() => tell({ type: "unpick", k })}>
                   ×
                 </button>
               </span>
             ))}
           </div>
           <button className={`btn btn--ask${picking ? " is-on" : ""}`} type="button" aria-pressed={picking} onClick={() => (picking && tell({ type: "clear" }), setEditing(null), setPicking(!picking))}>
-            {picking ? "Done pointing" : "Point at something for Claude"}
+            {picking ? t("Done pointing") : t("Point at something for Claude")}
           </button>
           <label className="field">
-            <span>What should change?</span>
-            <textarea rows={3} value={ask} onChange={(e) => setAsk(e.target.value)} placeholder="Make the mosaic one row on phones" />
+            <span>{t("What should change?")}</span>
+            <textarea rows={3} value={ask} onChange={(e) => setAsk(e.target.value)} placeholder={t("Make the mosaic one row on phones")} />
           </label>
           <PromptBox text={prompt(detail, lang, picks, ask)} />
           {!recent(builder).length && (
             <details className="qa notice">
-              <summary>Claude isn't connected to Dozokit Sites yet</summary>
+              <summary>{t("Claude isn't connected to Dozokit Sites yet")}</summary>
               <ConnectSteps />
             </details>
           )}
@@ -218,21 +219,21 @@ export function Editor({ site: detail, builder, onSite }: { site: SiteDetail; bu
       </div>
 
       {editing && pop && (
-        <div className="pop pop--free stock" style={{ left: pop.left, top: pop.top }} role="dialog" aria-label="Change it yourself, free">
+        <div className="pop pop--free stock" style={{ left: pop.left, top: pop.top }} role="dialog" aria-label={t("Change it yourself, free")}>
           {editing.kind === "text" && (
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                saveText(editing.path!, draftText, `Changed “${editing.text.slice(0, 40)}”`);
+                saveText(editing.path!, draftText, t("Changed “{text}”", { text: editing.text.slice(0, 40) }));
               }}
             >
-              <textarea autoFocus rows={Math.min(8, Math.ceil(draftText.length / 40) + 1)} value={draftText} onChange={(e) => setDraftText(e.target.value)} aria-label="Text" />
+              <textarea autoFocus rows={Math.min(8, Math.ceil(draftText.length / 40) + 1)} value={draftText} onChange={(e) => setDraftText(e.target.value)} aria-label={t("Text")} />
               <div className="pop-actions">
                 <button className="btn btn--ink" type="submit" disabled={Boolean(busy) || draftText === editing.text}>
-                  Save · free
+                  {t("Save · free")}
                 </button>
                 <button className="btn btn--quiet" type="button" onClick={unedit}>
-                  Cancel
+                  {t("Cancel")}
                 </button>
               </div>
             </form>
@@ -240,43 +241,43 @@ export function Editor({ site: detail, builder, onSite }: { site: SiteDetail; bu
           {editing.kind === "image" && (
             <div className="pop-actions">
               <button className="btn btn--ink" type="button" onClick={() => (setChoosing(editing.path), unedit())}>
-                Choose from your photos
+                {t("Choose from your photos")}
               </button>
               <label className="btn btn--quiet">
-                Upload a new one
+                {t("Upload a new one")}
                 <input type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && photo(editing.path!, e.target.files[0])} />
               </label>
               <button className="btn btn--quiet" type="button" onClick={unedit}>
-                Cancel
+                {t("Cancel")}
               </button>
             </div>
           )}
           {editing.href && (
             <a className="link-btn" href={editing.href} target="_blank" rel="noopener">
-              Open link ↗
+              {t("Open link")} ↗
             </a>
           )}
         </div>
       )}
 
       {!editing && picked && pop && (
-        <div className="pop pop--ask stock" style={{ left: pop.left, top: pop.top }} role="dialog" aria-label="What you picked for Claude">
-          <nav className="trail" aria-label="Layers">
-            {picked.trail.map((t, k) => (
+        <div className="pop pop--ask stock" style={{ left: pop.left, top: pop.top }} role="dialog" aria-label={t("What you picked for Claude")}>
+          <nav className="trail" aria-label={t("Layers")}>
+            {picked.trail.map((name, k) => (
               <span key={k}>
                 {k > 0 && <span aria-hidden="true"> › </span>}
                 <button type="button" aria-current={k === picked.i ? "true" : undefined} onClick={() => tell({ type: "level", i: k })}>
-                  {t}
+                  {name}
                 </button>
               </span>
             ))}
           </nav>
           <p className="help">
-            <kbd>↑</kbd> <kbd>↓</kbd> other layers · <kbd>Shift</kbd>+click to add more · say what to change on the right
+            <kbd>↑</kbd> <kbd>↓</kbd> {t("other layers")} · <kbd>Shift</kbd>{t("+click to add more · say what to change on the right")}
           </p>
           {picked.href && (
             <a className="link-btn" href={picked.href} target="_blank" rel="noopener">
-              Open link ↗
+              {t("Open link")} ↗
             </a>
           )}
         </div>
@@ -289,7 +290,7 @@ export function Editor({ site: detail, builder, onSite }: { site: SiteDetail; bu
           onPick={(id) => {
             const path = choosing;
             setChoosing(null);
-            saveText(path, id, "Photo changed by you");
+            saveText(path, id, t("Photo changed by you"));
           }}
         />
       )}
@@ -297,7 +298,7 @@ export function Editor({ site: detail, builder, onSite }: { site: SiteDetail; bu
       {styling && (
         <div className="modal-back" onClick={() => setStyling(null)}>
           <section className="modal modal--wide stock" role="dialog" aria-modal="true" aria-labelledby="style-h" onClick={(e) => e.stopPropagation()}>
-            <h2 id="style-h">Style</h2>
+            <h2 id="style-h">{t("Style")}</h2>
             <StylePicker value={styling} onChange={setStyling} />
             <div className="pop-actions">
               <button
@@ -305,23 +306,20 @@ export function Editor({ site: detail, builder, onSite }: { site: SiteDetail; bu
                 type="button"
                 disabled={Boolean(busy)}
                 onClick={async () => {
-                  setBusy("Changing the style");
+                  setBusy(t("Changing the style"));
                   try {
                     const out = await api<After>(`${at}/style`, { method: "PUT", body: JSON.stringify({ style: styling }) });
                     setStyling(null);
-                    done(out, "Style changed");
+                    done(out, t("Style changed"));
                   } catch (err) {
                     fail(err);
                   }
                 }}
               >
-                Use this style · free
+                {t("Use this style · free")}
               </button>
-              <button className="btn btn--quiet" type="button" aria-pressed={history} onClick={() => setHistory(!history)}>
-          History
-        </button>
-        <button className="btn btn--quiet" type="button" onClick={() => setStyling(null)}>
-                Cancel
+              <button className="btn btn--quiet" type="button" onClick={() => setStyling(null)}>
+                {t("Cancel")}
               </button>
             </div>
           </section>
@@ -330,14 +328,14 @@ export function Editor({ site: detail, builder, onSite }: { site: SiteDetail; bu
 
       {publishing && !publishing.open && publishing.url && (
         <p className="toast" role="status">
-          Published.{" "}
+          {t("Published.")}{" "}
           {publishing.checks.some((c) => !c.ok) && (
             <button type="button" className="link-btn" onClick={() => setPublishing({ ...publishing, open: true })}>
-              {publishing.checks.filter((c) => !c.ok).length} suggestions to help Google find you
+              {t("{n} suggestions to help Google find you", { n: publishing.checks.filter((c) => !c.ok).length })}
             </button>
           )}{" "}
           <button type="button" className="link-btn" onClick={() => setPublishing(null)}>
-            Close
+            {t("Close")}
           </button>
         </p>
       )}
@@ -345,7 +343,7 @@ export function Editor({ site: detail, builder, onSite }: { site: SiteDetail; bu
       {publishing?.open && (
         <div className="modal-back" onClick={() => setPublishing(null)}>
           <section className="modal stock" role="dialog" aria-modal="true" aria-labelledby="pub-h" onClick={(e) => e.stopPropagation()}>
-            <h2 id="pub-h">{publishing.url ? "Your site is live" : "Ready to publish"}</h2>
+            <h2 id="pub-h">{publishing.url ? t("Your site is live") : t("Ready to publish")}</h2>
             {publishing.url ? (
               <p>
                 <a href={publishing.url} target="_blank" rel="noopener">
@@ -355,31 +353,31 @@ export function Editor({ site: detail, builder, onSite }: { site: SiteDetail; bu
             ) : (
               <div className="pop-actions">
                 <button className="btn btn--ink" type="button" onClick={() => publish(true)} disabled={Boolean(busy)}>
-                  Publish now
+                  {t("Publish now")}
                 </button>
               </div>
             )}
             {publishing.checks.some((c) => !c.ok) && (
               <>
-                <h3 className="suggest-h">Suggestions (optional)</h3>
-                <p className="help">These help Google and AI assistants find you. Do them whenever you like.</p>
+                <h3 className="suggest-h">{t("Suggestions (optional)")}</h3>
+                <p className="help">{t("These help Google and AI assistants find you. Do them whenever you like.")}</p>
                 <ul className="checks">
                   {publishing.checks.filter((c) => !c.ok).map((c) => (
                     <li key={c.label} className="todo">
-                      <span aria-hidden="true">○</span> {c.label}
-                      <span className="help"> {c.fix}</span>
+                      <span aria-hidden="true">○</span> {tr(c.label)}
+                      <span className="help"> {tr(c.fix ?? "")}</span>
                     </li>
                   ))}
                 </ul>
               </>
             )}
             <details className="passed">
-              <summary>✓ {publishing.checks.filter((c) => c.ok).length} of {publishing.checks.length} checks passed</summary>
-              <ul className="checks">{publishing.checks.filter((c) => c.ok).map((c) => <li key={c.label} className="ok">✓ {c.label}</li>)}</ul>
+              <summary>✓ {t("{n} of {total} checks passed", { n: publishing.checks.filter((c) => c.ok).length, total: publishing.checks.length })}</summary>
+              <ul className="checks">{publishing.checks.filter((c) => c.ok).map((c) => <li key={c.label} className="ok">✓ {tr(c.label)}</li>)}</ul>
             </details>
             <div className="pop-actions">
               <button className="btn btn--quiet" type="button" onClick={() => setPublishing(null)}>
-                Close
+                {t("Close")}
               </button>
             </div>
           </section>

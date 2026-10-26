@@ -36,6 +36,12 @@
     }
   }
 
+  // Labels in the editor's language (the owner's choice, else their browser's).
+  var FR = { Headline: "Titre principal", Title: "Titre", Subtitle: "Sous-titre", Text: "Texte", List: "Liste", Item: "Élément", Menu: "Menu", Footer: "Pied de page", Form: "Formulaire", Table: "Tableau", Row: "Ligne", Photo: "Photo", Button: "Bouton", Quote: "Citation", Address: "Adresse", "Top of the page": "Haut de la page", Section: "Section", Link: "Lien", "Top bar": "Barre du haut", Buttons: "Boutons", "Change photo · free": "Changer la photo · gratuit", "Edit text · free": "Modifier le texte · gratuit" };
+  var lang;
+  try { lang = localStorage.getItem("dozokit_lang"); } catch (e) {}
+  if (lang !== "fr" && lang !== "en") lang = (navigator.language || "").toLowerCase().indexOf("fr") === 0 ? "fr" : "en";
+  function L(s) { return lang === "fr" && FR[s] ? FR[s] : s; }
   var NAMES = { H1: "Headline", H2: "Title", H3: "Subtitle", H4: "Subtitle", P: "Text", UL: "List", OL: "List", LI: "Item", NAV: "Menu", FOOTER: "Footer", FORM: "Form", TABLE: "Table", TR: "Row", FIGURE: "Photo", IMG: "Photo", PICTURE: "Photo", BUTTON: "Button", BLOCKQUOTE: "Quote", ADDRESS: "Address" };
   function short(s) {
     s = (s || "").replace(/\s+/g, " ").trim();
@@ -45,19 +51,19 @@
   function name(el) {
     if (el.dataset.section) {
       var h = el.querySelector("h1, h2");
-      return el.matches(".hero, [class*=hero]") ? "Top of the page" : "Section “" + short(h ? h.textContent : el.id) + "”";
+      return el.matches(".hero, [class*=hero]") ? L("Top of the page") : L("Section") + " “" + short(h ? h.textContent : el.id) + "”";
     }
-    if (el.dataset.kind === "image") return "Photo";
-    if (el.matches(".btn, [class*=btn], [class*=button]")) return "Button “" + short(el.textContent) + "”";
-    if (el.tagName === "A") return "Link “" + short(el.textContent) + "”";
-    if (el.matches(".topbar, body > header")) return "Top bar";
-    if (el.querySelectorAll(":scope > a, :scope > button").length > 1 && !el.matches("nav")) return "Buttons";
+    if (el.dataset.kind === "image") return L("Photo");
+    if (el.matches(".btn, [class*=btn], [class*=button]")) return L("Button") + " “" + short(el.textContent) + "”";
+    if (el.tagName === "A") return L("Link") + " “" + short(el.textContent) + "”";
+    if (el.matches(".topbar, body > header")) return L("Top bar");
+    if (el.querySelectorAll(":scope > a, :scope > button").length > 1 && !el.matches("nav")) return L("Buttons");
     // Lists and boxes are named after their class when they have one ("Gallery", "Mosaic").
     // Classes too short to mean anything ("d", "p2") don't make names.
     var c = (el.getAttribute("class") || "").split(/\s+/).filter(function (x) { return x.length > 2 && !/^(l|s|is|has)-/.test(x); })[0];
-    if (NAMES[el.tagName] && !(c && /^(UL|OL|LI|DIV|FIGURE)$/.test(el.tagName))) return NAMES[el.tagName];
+    if (NAMES[el.tagName] && !(c && /^(UL|OL|LI|DIV|FIGURE)$/.test(el.tagName))) return L(NAMES[el.tagName]);
     if (c) return (c.charAt(0).toUpperCase() + c.slice(1)).replace(/--.*/, "").replace(/[-_]+/g, " ");
-    return NAMES[el.tagName] || el.tagName.toLowerCase();
+    return NAMES[el.tagName] ? L(NAMES[el.tagName]) : el.tagName.toLowerCase();
   }
   function seen(el) {
     var r = el.getBoundingClientRect();
@@ -119,7 +125,7 @@
     return el && el.getAttribute("data-kind") !== "html" ? el : null;
   }
   function freeLabel(el) {
-    return el.getAttribute("data-kind") === "image" ? "Change photo · free" : "Edit text · free";
+    return L(el.getAttribute("data-kind") === "image" ? "Change photo · free" : "Edit text · free");
   }
   function sendEdit() {
     if (!editBox) editBox = overlay(false);

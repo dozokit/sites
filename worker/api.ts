@@ -2,7 +2,7 @@ import { AiError, get, set } from "./doc";
 import type { Env } from "./index";
 import { disconnectResend, finishResend, sendToOwner, startResend } from "./email";
 import { describe, library, remove, upload } from "./photos";
-import { RECIPES } from "./recipes";
+import { RECIPES, RECIPES_FR } from "./recipes";
 import { langPath, llms, renderPage, sitemap } from "./render";
 import { checks } from "./seo";
 import { CHECK, LAYOUTS, problem, styleOf, type SiteDoc } from "./site";
@@ -13,7 +13,7 @@ const json = (data: unknown, status = 200) => Response.json(data, { status });
 const body = async (req: Request) => (await req.json().catch(() => ({}))) as Record<string, unknown>;
 
 // This copy's release. Raise it with each tag on github.com/dozokit/sites and its CHANGELOG.md entry.
-const VERSION = "0.1.6";
+const VERSION = "0.1.7";
 
 // Where a site can be visited: its domain, else the builder's address (the first site at the
 // root, the others under /<slug>/).
@@ -70,7 +70,22 @@ async function text(req: Request, env: Env, id: number) {
   set(doc, b.path, value);
   const why = problem(doc);
   if (why) return json({ error: why }, 400);
-  const v = await save(env, id, doc, String(b.note ?? "Text changed by you").slice(0, 200), "owner");
+  const note = String(b.note ?? "Text changed by you").slice(0, 200);
+  // The Google Maps link isn't a page edit: it goes live at once. Other unpublished changes stay
+  // in the draft: the live version gets only the link, then the draft gets it on top.
+  const x = b.path === "business.google_url" ? await site(env, id) : null;
+  if (x?.published) {
+    if (x.published !== d.id) {
+      const live = structuredClone((await version(env, id, x.published))!.doc) as SiteDoc;
+      set(live, b.path, value);
+      await updateSite(env, id, { published: await save(env, id, live, note, "owner") });
+    } else {
+      const v = await save(env, id, doc, note, "owner");
+      await updateSite(env, id, { published: v });
+      return { change: { id: v } };
+    }
+  }
+  const v = await save(env, id, doc, note, "owner");
   return { change: { id: v } };
 }
 
@@ -197,7 +212,7 @@ export async function api(req: Request, env: Env, url: URL): Promise<Response> {
       case "GET /state": return json(await state(env, o));
       case "GET /version": return version_();
       case "GET /styles": return json(Object.entries(LAYOUTS).map(([id, l]) => ({ id, ...l })));
-      case "GET /recipes": return json(RECIPES.map(({ id, title, body }) => ({ id, title, body })));
+      case "GET /recipes": return json((url.searchParams.get("lang") === "fr" ? RECIPES_FR : RECIPES).map(({ id, title, body }) => ({ id, title, body })));
       case "PUT /settings": return putSettings(req, env, o);
       case "POST /email/test": return testEmail(env, o);
       case "POST /resend/start": return json({ url: await startResend(env, o) });

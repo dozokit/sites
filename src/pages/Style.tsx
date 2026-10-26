@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
+import { t } from "../lib/i18n";
 
 export type Palette = { paper: string; ink: string; accent: string; soft: string };
 export type Style = { layout: string; palette?: Palette };
@@ -25,12 +26,12 @@ const Swatch = ({ p }: { p: Palette }) => (
 // The page design and its colours. "Your colours" comes from the owner's old site when it was read.
 export function StylePicker({ value, onChange, brand }: { value: Style; onChange: (s: Style) => void; brand?: Palette | null }) {
   const layouts = useLayouts();
-  const palettes = [...(brand ? [{ id: "brand", label: "Your colours", p: brand }] : []), ...layouts.map((l) => ({ id: l.id, label: l.label, p: l.palette }))];
+  const palettes = [...(brand ? [{ id: "brand", label: t("Your colours"), p: brand }] : []), ...layouts.map((l) => ({ id: l.id, label: l.label, p: l.palette }))];
   const current = value.palette ?? layouts.find((l) => l.id === value.layout)?.palette;
   return (
     <div className="style-pick">
       <fieldset>
-        <legend>Layout</legend>
+        <legend>{t("Layout")}</legend>
         <div className="layouts">
           {layouts.map((l) => (
             <label key={l.id} className={`layout-card${value.layout === l.id ? " is-on" : ""}`}>
@@ -40,19 +41,19 @@ export function StylePicker({ value, onChange, brand }: { value: Style; onChange
                 <em />
                 <u />
               </span>
-              <strong>{l.label}</strong>
-              <span className="help">{l.hint}</span>
+              <strong>{t(l.label)}</strong>
+              <span className="help">{t(l.hint)}</span>
             </label>
           ))}
         </div>
       </fieldset>
       <fieldset>
-        <legend>Colours</legend>
+        <legend>{t("Colours")}</legend>
         <div className="palettes">
           {palettes.map((o) => (
             <label key={o.id} className={`chip-check${current && current.accent === o.p.accent && current.ink === o.p.ink ? " is-on" : ""}`}>
               <input type="radio" name="palette" checked={Boolean(current && current.accent === o.p.accent && current.ink === o.p.ink)} onChange={() => onChange({ ...value, palette: o.p })} />
-              <Swatch p={o.p} /> {o.label}
+              <Swatch p={o.p} /> {o.id === "brand" ? o.label : t(o.label)}
             </label>
           ))}
         </div>

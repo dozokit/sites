@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "./lib/api";
+import { t } from "./lib/i18n";
 import { returned } from "./lib/connect";
 import type { SiteDetail, State } from "./lib/types";
 import { Editor } from "./pages/Editor";
@@ -15,7 +16,7 @@ import { Start } from "./pages/Start";
 type Auth = { signedIn: boolean; passwordRequired: boolean; setupNeeded: string | null };
 type Tab = "site" | "photos" | "address" | "messages" | "settings";
 type View = { kind: "home" } | { kind: "new" } | { kind: "settings"; part?: string } | { kind: "site"; id: number; tab: Tab };
-const PARTS = ["connections", "help", "account"];
+const PARTS = ["connections", "help", "account", "updates"];
 
 // The address keeps the place: #new, #settings, #site/3, #site/3/messages.
 const read = (): View => {
@@ -27,7 +28,7 @@ const read = (): View => {
   if (h[0] === "site" && Number(h[1])) return { kind: "site", id: Number(h[1]), tab: (["photos", "address", "messages", "settings"].includes(h[2]) ? h[2] : "site") as Tab };
   return { kind: "home" };
 };
-const write = (v: View) => history.replaceState(null, "", v.kind === "home" ? location.pathname : v.kind === "site" ? `#site/${v.id}${v.tab === "site" ? "" : `/${v.tab}`}` : `#${v.kind}`);
+const write = (v: View) => history.replaceState(null, "", v.kind === "home" ? location.pathname : v.kind === "site" ? `#site/${v.id}${v.tab === "site" ? "" : `/${v.tab}`}` : v.kind === "settings" && v.part ? `#settings/${v.part}` : `#${v.kind}`);
 
 export function App() {
   const [auth, setAuth] = useState<Auth | null>(null);
@@ -88,7 +89,7 @@ export function App() {
   if (!auth) return <main className="container main" aria-busy="true" />;
   if (auth.setupNeeded) return <Setup message={auth.setupNeeded} />;
   if (!auth.signedIn) return <Login onDone={load} />;
-  if (!state) return <main className="container main">{error ? <p className="help help--error">{error}</p> : <p className="help">Loading…</p>}</main>;
+  if (!state) return <main className="container main">{error ? <p className="help help--error">{error}</p> : <p className="help">{t("Loading…")}</p>}</main>;
 
   const first = state.sites.length === 0;
   const start = (
@@ -115,21 +116,21 @@ export function App() {
         <div className="topbar-inner container">
           <a href="/admin" className="wordmark" onClick={(e) => (e.preventDefault(), go({ kind: "home" }))}>
             <img src="/icon.svg" alt="" width="20" height="20" />
-            Your sites
+            {t("Your sites")}
           </a>
-          <nav className="nav" aria-label="Sections">
+          <nav className="nav" aria-label={t("Sections")}>
             {view.kind === "site" && site ? (
               <>
                 <span className="nav-site">{site.doc.business.name}</span>
-                {tab("site", "Edit")}
-                {tab("photos", "Photos")}
-                {tab("address", "Address")}
-                {tab("messages", site.unread ? `Messages (${site.unread})` : "Messages")}
-                {tab("settings", "Site settings")}
+                {tab("site", t("Edit"))}
+                {tab("photos", t("Photos"))}
+                {tab("address", t("Address"))}
+                {tab("messages", site.unread ? t("Messages ({n})", { n: site.unread }) : t("Messages"))}
+                {tab("settings", t("Site settings"))}
               </>
             ) : (
               <a href="#settings" className="nav-link" aria-current={view.kind === "settings" ? "page" : undefined} onClick={(e) => (e.preventDefault(), go({ kind: "settings" }))}>
-                Settings
+                {t("Settings")}
               </a>
             )}
           </nav>
@@ -137,23 +138,30 @@ export function App() {
             <span className="topbar-end">
               {site?.published && (
                 <a className="nav-link" href={site.address + "/"} target="_blank" rel="noopener">
-                  Open the site ↗
+                  {t("Open the site")} ↗
                 </a>
               )}
               {/* The settings every site shares, reachable from inside a site too. */}
               <a href="#settings" className="nav-link" onClick={(e) => (e.preventDefault(), go({ kind: "settings" }))}>
-                Settings
+                {t("Settings")}
               </a>
             </span>
           )}
         </div>
       </header>
-      {release?.latest && <p className="update container">Version {release.latest} is available.</p>}
+      {release?.latest && (
+        <p className="update container">
+          {t("Version {v} is available.", { v: release.latest })}{" "}
+          <a href="#settings/updates" onClick={(e) => (e.preventDefault(), go({ kind: "settings", part: "updates" }))}>
+            {t("How to update")}
+          </a>
+        </p>
+      )}
       {error && <p className="toast help--error" role="alert">{error}</p>}
       {view.kind === "home" && <main className="container main"><Home state={state} onOpen={(id) => go({ kind: "site", id, tab: "site" })} onNew={() => go({ kind: "new" })} /></main>}
       {view.kind === "new" && start}
       {view.kind === "settings" && <main className="container main"><BuilderSettings state={state} onState={setState} passwordRequired={auth.passwordRequired} version={release?.version} part={view.part} /></main>}
-      {view.kind === "site" && !site && <main className="container main"><p className="help">Loading…</p></main>}
+      {view.kind === "site" && !site && <main className="container main"><p className="help">{t("Loading…")}</p></main>}
       {view.kind === "site" && site && (
         <>
           {view.tab === "site" && <Editor key={site.id} site={site} builder={state} onSite={onSite} />}
