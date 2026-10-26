@@ -1,0 +1,23 @@
+{
+  "langs": ["fr", "en"],
+  "business": { "name": "Martin Plomberie", "trade": "Plombier", "town": "Lille", "address": "12 rue Nationale, 59000 Lille", "phone": "03 20 12 34 56", "email": "contact@martin-plomberie.fr",
+    "hours": [{ "days": "Lundi – Vendredi", "spec": "Mo-Fr", "open": "08:00", "close": "18:00" }, { "days": "Samedi", "spec": "Sa", "open": "09:00", "close": "12:00" }, { "days": "Dimanche", "spec": "Su", "open": "", "close": "" }],
+    "google_url": "https://maps.google.com/?cid=123" },
+  "theme": { "palette": { "paper": "#fbf8f3", "ink": "#1d2330", "accent": "#0f5c8c", "soft": "#eef3f7" }, "fonts": "modern", "corners": "round" },
+  "content": {
+    "fr": { "title": "Plombier à Lille | Martin Plomberie", "description": "Plombier à Lille depuis le Vieux-Lille : fuites, chauffe-eau et salles de bain. Devis gratuit, intervention le jour même en semaine.",
+      "sections": [
+        { "id": "s1", "kind": "hero", "title": "Votre plombier à Lille, le jour même", "text": "Fuite, chauffe-eau en panne ou salle de bain à refaire : on vient chez vous, on explique, on répare.", "button": "Appeler" },
+        { "id": "s2", "kind": "services", "title": "Ce qu'on fait", "items": [{ "title": "Fuites et dépannage", "text": "Intervention rapide sur fuite, WC bouché ou robinet cassé." }, { "title": "Chauffe-eau", "text": "Remplacement et entretien de ballons électriques et thermodynamiques." }, { "title": "Salle de bain", "text": "Douche à l'italienne, meuble vasque, carrelage." }] },
+        { "id": "s3", "kind": "faq", "title": "Questions fréquentes", "items": [{ "title": "Le devis est-il gratuit ?", "text": "Oui, le devis est gratuit et sans engagement." }] },
+        { "id": "s4", "kind": "hours", "title": "Horaires" },
+        { "id": "s5", "kind": "contact", "title": "Nous écrire", "text": "On vous répond dans la journée." }
+      ] },
+    "en": { "title": "Plumber in Lille | Martin Plomberie", "description": "Plumber in Lille: leaks, water heaters and bathrooms. Free quote, same-day visits on weekdays.",
+      "sections": [
+        { "id": "s1", "kind": "hero", "title": "Your plumber in Lille, the same day", "text": "A leak, a broken water heater or a bathroom to redo: we come to you, explain, and fix it.", "button": "Call" },
+        { "id": "s2", "kind": "services", "title": "What we do", "items": [{ "title": "Leaks and repairs", "text": "Fast help with leaks, blocked toilets or broken taps." }, { "title": "Water heaters", "text": "Replacing and servicing electric and heat-pump water heaters." }] },
+        { "id": "s5", "kind": "contact", "title": "Write to us", "text": "We answer within the day." }
+      ] }
+  }
+}
