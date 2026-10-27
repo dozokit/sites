@@ -367,4 +367,7 @@ export const FR: Record<string, string> = {
   "Legal notice changed": "Mentions légales modifiées",
   "Your site's legal notice, privacy and cookie pages are written from these details and from what the site does. They're linked at the bottom of every page.": "Les mentions légales, la page de confidentialité et celle des cookies sont écrites à partir de ces informations et de ce que fait le site. Elles sont en lien en bas de chaque page.",
   "On the page /{page}:": "Sur la page /{page} :",
+  "Account ID (only if asked)": "Identifiant du compte (seulement si demandé)",
+  "That token can't see which Cloudflare account it's for. Paste your account ID below too: it's the long code after dash.cloudflare.com/ in your dashboard's address.": "Ce jeton ne voit pas à quel compte Cloudflare il appartient. Collez aussi l’identifiant de votre compte ci-dessous : c’est le long code après dash.cloudflare.com/ dans l’adresse de votre tableau de bord.",
+  "The account ID is 32 letters and digits, like 023e105f4ecef8ad9ca31a8372d0c353.": "L’identifiant du compte fait 32 lettres et chiffres, comme 023e105f4ecef8ad9ca31a8372d0c353.",
 };

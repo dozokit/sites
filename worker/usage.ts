@@ -8,7 +8,8 @@ import { settings } from "./store";
 // counted by the builder itself.
 
 export const LIMITS = { requests: 100_000, rows_read: 5_000_000, rows_written: 100_000, browser_minutes: 10 };
-export const TOKEN_LINK = `https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=${encodeURIComponent(JSON.stringify([{ key: "account_analytics", type: "read" }]))}&accountId=*&zoneId=all&name=Dozokit%20Sites%20usage`;
+// Account Settings Read lets the token list its account, so the owner needn't find the account ID.
+export const TOKEN_LINK = `https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=${encodeURIComponent(JSON.stringify([{ key: "account_analytics", type: "read" }, { key: "account_settings", type: "read" }]))}&accountId=*&zoneId=all&name=Dozokit%20Sites%20usage`;
 
 async function cf<T>(token: string, path: string, init?: RequestInit) {
   const res = await fetch(`https://api.cloudflare.com/client/v4${path}`, { ...init, headers: { authorization: `Bearer ${token}`, "content-type": "application/json" } });
@@ -17,9 +18,11 @@ async function cf<T>(token: string, path: string, init?: RequestInit) {
   return (out.result ?? out.data) as T;
 }
 
-export async function cloudflareUse(token: string, day: string) {
-  const [account] = await cf<{ id: string }[]>(token, "/accounts?per_page=1");
-  if (!account) throw new AiError("That token doesn't reach any Cloudflare account. Create it with the link, for your account.");
+// The account is the one the token lists, or the ID the owner pasted when it lists none (a token
+// made without Account Settings Read).
+export async function cloudflareUse(token: string, day: string, id?: string) {
+  const account = id ? { id } : (await cf<{ id: string }[]>(token, "/accounts?per_page=1"))[0];
+  if (!account) throw new AiError("That token can't see which Cloudflare account it's for. Paste your account ID below too: it's the long code after dash.cloudflare.com/ in your dashboard's address.");
   const q = await cf<{ viewer: { accounts: { w: { sum: { requests: number } }[]; d: { sum: { rowsRead: number; rowsWritten: number } }[] }[] } }>(token, "/graphql", {
     method: "POST",
     body: JSON.stringify({
@@ -36,11 +39,12 @@ export async function cloudflareUse(token: string, day: string) {
 export async function usage(env: Env) {
   const day = new Date().toISOString().slice(0, 10);
   const b = await env.DB.prepare("select ms from browser_use where day = ?").bind(day).first<{ ms: number }>();
-  const token = (await settings(env, true)).cloudflare_token;
+  const s = await settings(env, true);
+  const token = s.cloudflare_token;
   const out = { day, browser_minutes: Math.round((b?.ms ?? 0) / 6000) / 10, limits: LIMITS, token_link: TOKEN_LINK, connected: Boolean(token) };
   if (!token) return out;
   try {
-    return { ...out, ...(await cloudflareUse(token, day)) };
+    return { ...out, ...(await cloudflareUse(token, day, s.cloudflare_account)) };
   } catch (err) {
     return { ...out, error: (err as Error).message };
   }

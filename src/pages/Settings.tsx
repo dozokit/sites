@@ -135,6 +135,7 @@ type Use = { day: string; browser_minutes: number; requests?: number; rows_read?
 function Usage() {
   const [use, setUse] = useState<Use | null>(null);
   const [token, setToken] = useState("");
+  const [account, setAccount] = useState("");
   useEffect(() => {
     api<Use>("/api/usage").then(setUse, () => {});
   }, []);
@@ -147,7 +148,7 @@ function Usage() {
       <td>{n !== undefined && <meter min={0} max={max} low={max * 0.7} high={max * 0.9} optimum={0} value={n} />}</td>
     </tr>
   );
-  const put = async (value: string) => setUse(await api<Use>("/api/usage", { method: "PUT", body: JSON.stringify({ token: value }) }));
+  const put = async (value: string, id = "") => setUse(await api<Use>("/api/usage", { method: "PUT", body: JSON.stringify({ token: value, account: id }) }));
   return (
     <section className="page-section">
       <h2>{t("Today on Cloudflare's free plan")}</h2>
@@ -167,10 +168,14 @@ function Usage() {
           {t("Remove the Cloudflare token")}
         </button>
       ) : (
-        <Form title={t("See requests and database use")} onSave={() => put(token).then(() => setToken(""))} help={inline(t("Create a read-only token in Cloudflare ([this link fills it in]({link}): click **Continue to summary**, then **Create Token**), copy it and paste it here. It can only read your account's statistics.", { link: use.token_link }))}>
+        <Form title={t("See requests and database use")} onSave={() => put(token, account).then(() => (setToken(""), setAccount("")))} help={inline(t("Create a read-only token in Cloudflare ([this link fills it in]({link}): click **Continue to summary**, then **Create Token**), copy it and paste it here. It can only read your account's statistics.", { link: use.token_link }))}>
           <label className="field">
             <span>{t("Cloudflare token")}</span>
             <input type="password" value={token} onChange={(e) => setToken(e.target.value)} autoComplete="off" spellCheck={false} />
+          </label>
+          <label className="field">
+            <span>{t("Account ID (only if asked)")}</span>
+            <input value={account} onChange={(e) => setAccount(e.target.value)} placeholder="023e105f4ecef8ad9ca31a8372d0c353" autoComplete="off" spellCheck={false} />
           </label>
         </Form>
       )}

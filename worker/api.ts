@@ -14,7 +14,7 @@ const json = (data: unknown, status = 200) => Response.json(data, { status });
 const body = async (req: Request) => (await req.json().catch(() => ({}))) as Record<string, unknown>;
 
 // This copy's release. Raise it with each tag on github.com/dozokit/sites and its CHANGELOG.md entry.
-const VERSION = "0.1.9";
+const VERSION = "0.1.10";
 
 // Where a site can be visited: its domain, else the builder's address (the first site at the
 // root, the others under /<slug>/).
@@ -231,9 +231,13 @@ export async function api(req: Request, env: Env, url: URL): Promise<Response> {
       case "GET /usage": return json(await usage(env));
       case "PUT /usage": {
         // The token is tried once before it's kept, and never sent back.
-        const token = String((await body(req)).token ?? "").trim();
-        if (token) await cloudflareUse(token, new Date().toISOString().slice(0, 10));
+        const b = await body(req);
+        const token = String(b.token ?? "").trim();
+        const account = String(b.account ?? "").trim().toLowerCase();
+        if (account && !/^[0-9a-f]{32}$/.test(account)) return json({ error: "The account ID is 32 letters and digits, like 023e105f4ecef8ad9ca31a8372d0c353." }, 400);
+        if (token) await cloudflareUse(token, new Date().toISOString().slice(0, 10), account || undefined);
         await setSetting(env, "cloudflare_token", token || null);
+        await setSetting(env, "cloudflare_account", (token && account) || null);
         return json(await usage(env));
       }
       case "GET /styles": return json(Object.entries(LAYOUTS).map(([id, l]) => ({ id, ...l })));

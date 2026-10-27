@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.10 – 2026-10-27
+
+- Fixed: Settings → Usage said a token made with its link "doesn't reach any Cloudflare account". The link now also asks for Account Settings (read), so the builder finds your account by itself. With a token made before, paste your account ID in the new field: it's the long code after dash.cloudflare.com/ in your dashboard's address.
+
 ## 0.1.9 – 2026-10-27
 
 - More than one page: Claude can add pages (Services, Contact…, each in the menu) and a blog (a list of posts at /blog, each post at /blog/<name>). You pick the page to edit at the top of the editor, and change texts and photos on it as on the home page.
