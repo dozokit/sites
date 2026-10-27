@@ -9,7 +9,7 @@ A website builder that runs in your own Cloudflare account, designed with Claude
 You need a free Cloudflare account, a GitHub (or GitLab) account and a Claude account.
 
 1. **Click Deploy to Cloudflare** above and sign in to Cloudflare.
-2. **Connect GitHub** when asked. Cloudflare copies this repository into your account; that copy is what it builds and deploys.
+2. **Connect GitHub** when asked. Cloudflare copies this repository into your account; that copy is what it builds and deploys. **Make your copy private** when Cloudflare offers it: nobody else needs to see it, and everything works the same (updates included; on GitHub's free plan a private copy has 2,000 Actions minutes a month, and an update run takes a few seconds, counted as one minute).
 3. **Fill in the form.** Keep the names it suggests (`dozokit-sites`) unless they clash with something you already have, and type a **password of 12 characters or more**: it is the one you will sign in to your builder with.
 4. **Click Create and deploy** and wait a minute or two. Cloudflare creates the Worker, its database, its photo store and the database's tables.
 5. **Open your builder** at the address Cloudflare shows, something like `https://dozokit-sites.your-name.workers.dev/admin`, and sign in.

@@ -1,19 +1,20 @@
 import { AiError, get, set } from "./doc";
 import type { Env } from "./index";
 import { disconnectResend, finishResend, sendToOwner, startResend } from "./email";
-import { describe, library, remove, upload } from "./photos";
+import { describe, library, phonePass, remove, upload } from "./photos";
 import { RECIPES, RECIPES_FR } from "./recipes";
-import { langPath, llms, renderPage, sitemap } from "./render";
+import { langPath, llms, paths, renderPage, sitemap } from "./render";
 import { checks } from "./seo";
 import { CHECK, LAYOUTS, problem, styleOf, type SiteDoc } from "./site";
 import { deleteSite, draft, save, setSetting, settings, site, sites, updateSite, version, type Site } from "./store";
+import { cloudflareUse, usage } from "./usage";
 import { zip } from "./zip";
 
 const json = (data: unknown, status = 200) => Response.json(data, { status });
 const body = async (req: Request) => (await req.json().catch(() => ({}))) as Record<string, unknown>;
 
 // This copy's release. Raise it with each tag on github.com/dozokit/sites and its CHANGELOG.md entry.
-const VERSION = "0.1.8";
+const VERSION = "0.1.9";
 
 // Where a site can be visited: its domain, else the builder's address (the first site at the
 // root, the others under /<slug>/).
@@ -62,7 +63,7 @@ async function text(req: Request, env: Env, id: number) {
   const d = await draft(env, id);
   if (!d || typeof b.path !== "string") return json({ error: "Nothing to change." }, 400);
   // A text that exists, a photo slot (which may be empty), or one of the business's own details.
-  const own = ["business.google_url", "business.phone", "business.email", "business.logo", "business.favicon"].includes(b.path);
+  const own = ["business.google_url", "business.phone", "business.email", "business.logo", "business.favicon", "business.legal.form", "business.legal.number", "business.legal.director"].includes(b.path);
   const ok = typeof get(d.doc, b.path) === "string" || /\.image$/.test(b.path) || own;
   if (!ok) return json({ error: "Only a text or a photo can be changed this way." }, 400);
   const value = String(b.value ?? "").slice(0, 5000);
@@ -70,6 +71,7 @@ async function text(req: Request, env: Env, id: number) {
   if (b.path === "business.email" && value && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value.trim())) return json({ error: "That email address doesn't look complete." }, 400);
   if (b.path === "business.phone" && value && !/^[+\d][\d .()-]{5,}$/.test(value.trim())) return json({ error: "Type the phone number with digits only, like 05 59 80 27 00." }, 400);
   const doc = structuredClone(d.doc) as SiteDoc;
+  if (b.path.startsWith("business.legal.")) doc.business.legal ??= {};
   const before = String(get(doc, b.path) ?? "");
   set(doc, b.path, value.trim());
   // A new phone or email replaces the old one everywhere, blocks Claude wrote included (tel: and
@@ -155,7 +157,9 @@ async function download(env: Env, id: number, origin: string) {
   const enc = new TextEncoder();
   const doc = d.doc;
   const root = x.address;
-  const files = doc.langs.map((l) => ({ name: `${langPath(doc, l).slice(1)}index.html`, data: enc.encode(renderPage(doc, l, { origin: root, nonce: "zip" })) }));
+  const files = doc.langs.flatMap((l) =>
+    [...paths(doc, l), "legal", "privacy", "cookies"].map((path) => ({ name: `${langPath(doc, l).slice(1)}${path ? `${path}/` : ""}index.html`, data: enc.encode(renderPage(doc, l, { origin: root, nonce: "zip" }, path)!) })),
+  );
   files.push({ name: "sitemap.xml", data: enc.encode(sitemap(doc, root, new Date(d.created_at).toISOString().slice(0, 10))) });
   files.push({ name: "llms.txt", data: enc.encode(llms(doc, root)) });
   files.push({ name: "robots.txt", data: enc.encode(`User-agent: *\nAllow: /\nSitemap: ${root}/sitemap.xml\n`) });
@@ -224,6 +228,14 @@ export async function api(req: Request, env: Env, url: URL): Promise<Response> {
     switch (route) {
       case "GET /state": return json(await state(env, o));
       case "GET /version": return version_();
+      case "GET /usage": return json(await usage(env));
+      case "PUT /usage": {
+        // The token is tried once before it's kept, and never sent back.
+        const token = String((await body(req)).token ?? "").trim();
+        if (token) await cloudflareUse(token, new Date().toISOString().slice(0, 10));
+        await setSetting(env, "cloudflare_token", token || null);
+        return json(await usage(env));
+      }
       case "GET /styles": return json(Object.entries(LAYOUTS).map(([id, l]) => ({ id, ...l })));
       case "GET /recipes": return json((url.searchParams.get("lang") === "fr" ? RECIPES_FR : RECIPES).map(({ id, title, body }) => ({ id, title, body })));
       case "PUT /settings": return putSettings(req, env, o);
@@ -275,6 +287,7 @@ export async function api(req: Request, env: Env, url: URL): Promise<Response> {
           return json({ error: (err as Error).message }, 400);
         }
       }
+      case "POST phone": return json({ url: `${o}/up/${await phonePass(env, id)}` });
       case "PUT photo": {
         const b = await body(req);
         await describe(env, id, String(b.id ?? ""), String(b.alt ?? ""));

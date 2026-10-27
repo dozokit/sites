@@ -2,7 +2,7 @@ import type { Env } from "./index";
 import type { SiteDoc } from "./site";
 
 // Settings shared by every site in this builder.
-export type Settings = Partial<Record<"analytics_url" | "notify_to" | "email_last" | "resend_client" | "resend_token" | "resend_pkce", string>>;
+export type Settings = Partial<Record<"analytics_url" | "notify_to" | "email_last" | "resend_client" | "resend_token" | "resend_pkce" | "cloudflare_token", string>>;
 
 export type Site = { id: number; slug: string; domain: string | null; published: number | null; analytics_site: string | null; created_at: number };
 
@@ -53,7 +53,7 @@ export async function updateSite(env: Env, id: number, fields: Partial<Pick<Site
 }
 
 // Addresses that belong to the builder or to a site's language pages, so no site can take them.
-const RESERVED = new Set(["admin", "api", "img", "contact", "assets", "editor", "robots", "sitemap", "favicon", "well-known", "site"]);
+const RESERVED = new Set(["admin", "api", "img", "contact", "assets", "editor", "robots", "sitemap", "favicon", "well-known", "site", "blog", "legal", "privacy", "cookies", "up"]);
 
 export async function newSite(env: Env, name: string) {
   const base = name.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "site";

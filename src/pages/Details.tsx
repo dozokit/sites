@@ -5,15 +5,23 @@ import type { SiteDetail } from "../lib/types";
 import { PhotoPicker } from "./Photos";
 
 type Save = (path: string, value: string, note: string) => Promise<void>;
+type Legal = "form" | "number" | "director";
+const LEGAL: [Legal, string, string][] = [
+  ["form", "Legal form", "SARL au capital de 5 000 €"],
+  ["number", "Company number", "SIRET 123 456 789 00012"],
+  ["director", "Publication director", "Marie Martin"],
+];
 
 // The few details that live in more than one place on the page, edited once: the phone and email
 // (every button and block that shows them), the logo and the favicon, and the Google Maps link.
 // Everything else is changed on the page itself, or by Claude.
 export function Details({ site, save, onClose, message }: { site: SiteDetail; save: Save; onClose: () => void; message: { ok: boolean; text: string } | null }) {
-  const b = site.doc.business as { phone?: string; email?: string; logo?: string; favicon?: string; google_url?: string; name: string };
+  const b = site.doc.business as { phone?: string; email?: string; logo?: string; favicon?: string; google_url?: string; name: string; legal?: Record<Legal, string | undefined> };
   const [phone, setPhone] = useState(b.phone ?? "");
   const [email, setEmail] = useState(b.email ?? "");
   const [google, setGoogle] = useState(b.google_url ?? "");
+  const [legal, setLegal] = useState<Record<Legal, string>>({ form: b.legal?.form ?? "", number: b.legal?.number ?? "", director: b.legal?.director ?? "" });
+  const legalChanged = (Object.keys(legal) as Legal[]).filter((k) => legal[k].trim() !== (b.legal?.[k] ?? ""));
   const [choosing, setChoosing] = useState<"logo" | "favicon" | null>(null);
 
   const image = (key: "logo" | "favicon", label: string, empty: string) => (
@@ -70,6 +78,26 @@ export function Details({ site, save, onClose, message }: { site: SiteDetail; sa
       <h3 className="detail-h">{t("Favicon")}</h3>
       <p className="help">{t("The little icon in the browser tab and in Google's results.")}</p>
       {image("favicon", "Favicon changed", [...b.name.trim()][0]?.toUpperCase() ?? "•")}
+
+      <form
+        className="field-stack"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          for (const k of legalChanged) await save(`business.legal.${k}`, legal[k], t("Legal notice changed"));
+        }}
+      >
+        <h3 className="detail-h">{t("Legal notice")}</h3>
+        <p className="help">{t("Your site's legal notice, privacy and cookie pages are written from these details and from what the site does. They're linked at the bottom of every page.")}</p>
+        {LEGAL.map(([k, label, example]) => (
+          <label key={k} className="field">
+            <span>{t(label)}</span>
+            <input value={legal[k]} onChange={(e) => setLegal({ ...legal, [k]: e.target.value })} placeholder={example} />
+          </label>
+        ))}
+        <button className="btn btn--ink" type="submit" disabled={!legalChanged.length}>
+          {t("Save · free")}
+        </button>
+      </form>
 
       <form
         className="field-stack"

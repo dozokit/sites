@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./lib/api";
 import { t } from "./lib/i18n";
 import { returned } from "./lib/connect";
@@ -16,7 +16,7 @@ import { Start } from "./pages/Start";
 type Auth = { signedIn: boolean; passwordRequired: boolean; setupNeeded: string | null };
 type Tab = "site" | "photos" | "address" | "messages" | "settings";
 type View = { kind: "home" } | { kind: "new" } | { kind: "settings"; part?: string } | { kind: "site"; id: number; tab: Tab };
-const PARTS = ["connections", "help", "account", "updates"];
+const PARTS = ["connections", "usage", "help", "account", "updates"];
 
 // The address keeps the place: #new, #settings, #site/3, #site/3/messages.
 const read = (): View => {
@@ -37,6 +37,7 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [release, setRelease] = useState<{ version: string; latest: string | null } | null>(null);
   const [view, setView] = useState<View>(read);
+  const menu = useRef<HTMLDetailsElement>(null);
 
   const go = (v: View) => {
     setView(v);
@@ -77,6 +78,12 @@ export function App() {
     const on = () => setView(read());
     window.addEventListener("hashchange", on);
     return () => window.removeEventListener("hashchange", on);
+  }, []);
+  // A click anywhere else closes the menu.
+  useEffect(() => {
+    const out = (e: MouseEvent) => menu.current?.open && !menu.current.contains(e.target as Node) && (menu.current.open = false);
+    document.addEventListener("click", out);
+    return () => document.removeEventListener("click", out);
   }, []);
   // The open site: loaded when its page opens.
   const openId = view.kind === "site" ? view.id : null;
@@ -119,7 +126,7 @@ export function App() {
             {t("Your sites")}
           </a>
           <nav className="nav" aria-label={t("Sections")}>
-            {view.kind === "site" && site ? (
+            {view.kind === "site" && site && (
               <>
                 <span className="nav-site">{site.doc.business.name}</span>
                 {tab("site", t("Edit"))}
@@ -128,25 +135,37 @@ export function App() {
                 {tab("messages", site.unread ? t("Messages ({n})", { n: site.unread }) : t("Messages"))}
                 {tab("settings", t("Site settings"))}
               </>
-            ) : (
-              <a href="#settings" className="nav-link" aria-current={view.kind === "settings" ? "page" : undefined} onClick={(e) => (e.preventDefault(), go({ kind: "settings" }))}>
-                {t("Settings")}
-              </a>
             )}
           </nav>
-          {view.kind === "site" && (
-            <span className="topbar-end">
-              {site?.published && (
-                <a className="nav-link" href={site.address + "/"} target="_blank" rel="noopener">
-                  {t("Open the site")} ↗
-                </a>
-              )}
-              {/* The settings every site shares, reachable from inside a site too. */}
-              <a href="#settings" className="nav-link" onClick={(e) => (e.preventDefault(), go({ kind: "settings" }))}>
-                {t("Settings")}
+          <span className="topbar-end">
+            {view.kind === "site" && site?.published && (
+              <a className="nav-link" href={site.address + "/"} target="_blank" rel="noopener">
+                {t("Open the site")} ↗
               </a>
-            </span>
-          )}
+            )}
+            {/* The settings every site shares, the same menu on every screen. */}
+            <details className="menu" ref={menu}>
+              <summary className="nav-link" aria-current={view.kind === "settings" ? "page" : undefined}>
+                {t("Settings")} ▾
+              </summary>
+              <div className="menu-list">
+                {(["connections", "usage", "help", "account", "updates"] as const).map((p) => (
+                  <a key={p} href={`#settings/${p}`} onClick={(e) => (e.preventDefault(), (menu.current!.open = false), go({ kind: "settings", part: p }))}>
+                    {t({ connections: "Connections", usage: "Usage", help: "Help", account: "Account", updates: "Updates" }[p])}
+                  </a>
+                ))}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await api("/api/logout", { method: "POST" });
+                    location.reload();
+                  }}
+                >
+                  {t("Sign out")}
+                </button>
+              </div>
+            </details>
+          </span>
         </div>
       </header>
       {release?.latest && (

@@ -55,3 +55,46 @@ export async function remove(env: Env, siteId: number, id: string) {
   const other = await env.DB.prepare("select 1 from photos where id = ? limit 1").bind(id).first();
   if (!still && !other) await env.IMAGES.delete(id);
 }
+
+// A link the owner opens on their phone to add photos to one site without signing in there.
+// Anyone with it can upload to that site for 30 minutes, nothing else.
+export async function phonePass(env: Env, siteId: number) {
+  const t = crypto.randomUUID();
+  await env.IMAGES.put(`phone:${t}`, String(siteId), { expirationTtl: 1800 });
+  return t;
+}
+
+export const phoneSite = async (env: Env, t: string) => Number(await env.IMAGES.get(`phone:${t}`)) || null;
+
+// The phone's page: pick photos, each one made smaller on the phone before it goes up.
+export function phonePage(name: string, fr: boolean) {
+  const w = fr
+    ? { title: `Ajouter des photos à ${name}`, pick: "Choisir des photos", sending: "Envoi", done: "photo(s) ajoutée(s). Elles sont dans l’onglet Photos sur l’ordinateur.", failed: "Une photo n’est pas passée :" }
+    : { title: `Add photos to ${name}`, pick: "Choose photos", sending: "Sending", done: "photo(s) added. They're in the Photos tab on your computer.", failed: "A photo didn't go up:" };
+  const esc = (x: string) => x.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+  return `<!doctype html><html lang="${fr ? "fr" : "en"}"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>${esc(w.title)}</title>
+<body style="font:17px/1.5 system-ui,sans-serif;max-width:32rem;margin:10vh auto;padding:0 1rem;color:#2a2421;background:#f6f1ec"><h1 style="font-size:1.4rem">${esc(w.title)}</h1>
+<label style="display:inline-block;padding:.8rem 1.2rem;border-radius:8px;background:#2a2421;color:#f6f1ec">${esc(w.pick)}<input id="f" type="file" accept="image/*" multiple hidden></label>
+<p id="s" role="status"></p>
+<script>
+let n = 0;
+f.onchange = async () => {
+  for (const [i, file] of [...f.files].entries()) {
+    s.textContent = ${JSON.stringify(w.sending)} + " " + (i + 1) + " / " + f.files.length + "…";
+    try {
+      const b = await createImageBitmap(file), k = Math.min(1, 1600 / b.width), c = document.createElement("canvas");
+      c.width = Math.round(b.width * k); c.height = Math.round(b.height * k);
+      c.getContext("2d").drawImage(b, 0, 0, c.width, c.height);
+      const blob = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.82));
+      const r = await fetch(location.pathname, { method: "POST", headers: { "content-type": "image/jpeg" }, body: blob });
+      if (!r.ok) throw new Error((await r.json()).error);
+      n++;
+    } catch (e) {
+      s.textContent = ${JSON.stringify(w.failed)} + " " + e.message; return;
+    }
+  }
+  s.textContent = n + " " + ${JSON.stringify(w.done)};
+};
+</script></body></html>`;
+}
+

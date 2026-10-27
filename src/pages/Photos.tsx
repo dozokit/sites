@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { rich, t } from "../lib/i18n";
+import qrcode from "qrcode-generator";
 import { listPhotos, uploadPhoto, type Photo } from "../lib/photos";
 
 const FROM: Record<string, string> = { upload: "Uploaded", website: "From your old site", page: "On the page" };
@@ -41,6 +42,45 @@ function Uploader({ siteId, onDone }: { siteId: number; onDone: (p: Photo[], id:
   );
 }
 
+// A QR code for a 30-minute upload link: the owner adds photos straight from their phone, and
+// the library here refreshes while it's open.
+function FromPhone({ siteId, onList }: { siteId: number; onList: (p: Photo[]) => void }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!url) return;
+    const every = setInterval(() => listPhotos(siteId).then(onList, () => {}), 5000);
+    const stop = setTimeout(() => setUrl(null), 30 * 60_000);
+    return () => (clearInterval(every), clearTimeout(stop));
+  }, [url, siteId, onList]);
+  const qr = (u: string) => {
+    const q = qrcode(0, "M");
+    q.addData(u);
+    q.make();
+    return q.createSvgTag({ cellSize: 5, margin: 2 });
+  };
+  return (
+    <div className="phone">
+      <h3>{t("From your phone")}</h3>
+      {url ? (
+        <>
+          <div className="phone-qr" dangerouslySetInnerHTML={{ __html: qr(url) }} />
+          <p className="help">{t("Scan it with your phone's camera, then choose photos. They appear here as they arrive. The link works for 30 minutes, no password needed.")}</p>
+        </>
+      ) : (
+        <>
+          <p className="help">{t("Your best photos are often on your phone. Show a code here, scan it, and send them straight from there.")}</p>
+          <button type="button" className="btn btn--quiet" onClick={() => api<{ url: string }>(`/api/sites/${siteId}/phone`, { method: "POST" }).then((r) => setUrl(r.url), (e: Error) => setError(e.message))}>
+            {t("Show the code")}
+          </button>
+          {error && <p className="help help--error">{error}</p>}
+        </>
+      )}
+      <p className="help">{rich(t("Photos on Instagram or Facebook: download your own copy (in Instagram, **Accounts Center → Your information and permissions → Download your information**), then add them here."))}</p>
+    </div>
+  );
+}
+
 // The site's photo library, like WordPress's media library.
 export function Photos({ siteId }: { siteId: number }) {
   const [list, setList] = useState<Photo[] | null>(null);
@@ -56,7 +96,10 @@ export function Photos({ siteId }: { siteId: number }) {
     <section className="page-section">
       <h2>{t("Your photos")}</h2>
       <p className="lead">{t("Upload as many as you like, then use them anywhere on your site: click a photo on the page in the editor and choose one. The description tells Google and screen readers what the photo shows.")}</p>
-      <Uploader siteId={siteId} onDone={(p) => setList(p)} />
+      <div className="add-photos">
+        <Uploader siteId={siteId} onDone={(p) => setList(p)} />
+        <FromPhone siteId={siteId} onList={setList} />
+      </div>
       {list && !list.length && <p className="muted">{t("No photo yet.")}</p>}
       <ul className="library">
         {list?.map((p) => (

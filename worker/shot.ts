@@ -10,17 +10,22 @@ const b64 = (buf: Uint8Array) => {
   return btoa(s);
 };
 
+// Browser time, counted for the usage panel (free plan: 10 minutes a day, reset at 00:00 UTC).
+const counted = (env: Env, start: number) =>
+  env.DB.prepare("insert into browser_use (day, ms) values (?, ?) on conflict (day) do update set ms = ms + excluded.ms")
+    .bind(new Date().toISOString().slice(0, 10), Date.now() - start)
+    .run()
+    .catch(() => {});
+
 export async function shoot(env: Env, url: string, opts: { width: number; height: number; full?: boolean; html?: string; probe?: string }) {
   if (!env.BROWSER) throw new Error("This builder has no browser binding, so it can't take screenshots.");
   const browser = await puppeteer.launch(env.BROWSER);
+  const start = Date.now();
   try {
     const page = await browser.newPage();
     await page.setViewport({ width: opts.width, height: opts.height, deviceScaleFactor: 1 });
     if (opts.html) await page.setContent(opts.html, { waitUntil: "networkidle0", timeout: 20_000 });
     else await page.goto(url, { waitUntil: "networkidle0", timeout: 20_000 });
-    // Photos further down load only when a visitor scrolls near them: load them all now, or a
-    // whole-page shot shows empty boxes where they go.
-    if (opts.full) await page.evaluate(`Promise.all([...document.images].map((i) => (i.loading = "eager", i.complete ? 0 : new Promise((r) => (i.onload = i.onerror = r, setTimeout(r, 5000))))))`);
     // Photos further down load only when a visitor scrolls near them: load them all now, or a
     // whole-page shot shows empty boxes where they go.
     if (opts.full) await page.evaluate(`Promise.all([...document.images].map((i) => (i.loading = "eager", i.complete ? 0 : new Promise((r) => (i.onload = i.onerror = r, setTimeout(r, 5000))))))`);
@@ -32,6 +37,7 @@ export async function shoot(env: Env, url: string, opts: { width: number; height
     return { image: b64(shot), answer };
   } finally {
     await browser.close();
+    await counted(env, start);
   }
 }
 
@@ -115,6 +121,7 @@ export async function brandSeen(env: Env, url: string): Promise<{ colors: [strin
   if (!env.BROWSER) return null;
   const browser = await puppeteer.launch(env.BROWSER).catch(() => null);
   if (!browser) return null;
+  const start = Date.now();
   try {
     const page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 800 });
@@ -124,5 +131,6 @@ export async function brandSeen(env: Env, url: string): Promise<{ colors: [strin
     return null;
   } finally {
     await browser.close();
+    await counted(env, start);
   }
 }

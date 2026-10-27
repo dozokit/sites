@@ -14,7 +14,7 @@ export type SiteDetail = { id: number; slug: string; domain: string | null; addr
 export type SiteDoc = {
   langs: string[];
   business: { name: string; trade: string; town: string; google_url?: string; [k: string]: unknown };
-  content: Record<string, { title: string; description: string; sections: { id: string; kind: string; title: string }[] }>;
+  content: Record<string, { title: string; description: string; sections: { id: string; kind: string; title: string }[]; pages?: { slug: string; menu: string }[]; posts?: { slug: string; title: string }[] }>;
   [k: string]: unknown;
 };
 

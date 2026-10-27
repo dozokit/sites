@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 
 // Enough Markdown for the recipes: paragraphs, numbered steps, **bold**, *italic* and [links](https://…).
-function inline(s: string) {
+export function inline(s: string) {
   const out: React.ReactNode[] = [];
   const re = /\*\*([^*]+)\*\*|\*([^*]+)\*|\[([^\]]+)\]\((https:\/\/[^)\s]+)\)/g;
   let last = 0;

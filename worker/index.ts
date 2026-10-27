@@ -1,6 +1,7 @@
 import { api } from "./api";
 import { mcp } from "./mcp";
 import { passOk } from "./shot";
+import { phonePage, phoneSite, upload } from "./photos";
 import { authorize, bearer, metadata, register, token, unauthorized } from "./oauth";
 import { changePassword, login, logout, passwordRequired, setupNeeded, signedIn } from "./auth";
 import { favicon, llms, renderPage, sitemap } from "./render";
@@ -29,6 +30,24 @@ const page = (status: number, title: string, text: string) =>
     { "cache-control": "no-store" },
     status,
   );
+
+// Nothing published yet. On the builder's own address that's a fresh install: Cloudflare's deploy
+// page ends with this address, so the owner finds the way to the builder here.
+async function notYet(env: Env, url: URL) {
+  const all = await sites(env);
+  if (all.some((s) => s.published || s.domain === url.host)) return page(200, "Coming soon", "This website is being built.");
+  const admin = `${url.origin}/admin`;
+  return page(
+    200,
+    "Dozokit Sites is installed",
+    `Open your builder to make your first site. Keep this address: it's where you'll sign in.</p>` +
+      `<p style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center"><code style="padding:.4rem .6rem;background:#fff;border-radius:6px;word-break:break-all">${admin}</code>` +
+      `<button type="button" id="copy" style="font:inherit;padding:.4rem .8rem;border:1px solid #2a2421;border-radius:6px;background:none;cursor:pointer">Copy</button></p>` +
+      `<p><a href="/admin" style="display:inline-block;padding:.6rem 1.1rem;border-radius:6px;background:#2a2421;color:#f6f1ec;text-decoration:none">Open your builder</a>` +
+      // Where the browser refuses the clipboard, the address is selected for a manual copy.
+      `<script>copy.onclick=()=>navigator.clipboard.writeText(${JSON.stringify(admin)}).then(()=>copy.textContent="Copied",()=>getSelection().selectAllChildren(copy.previousSibling))</script>`,
+  );
+}
 
 // The published site runs no script but its own contact form (by nonce) and, when connected,
 // Dozokit Analytics. A custom block can embed a map, a video or a booking page, nothing else.
@@ -91,10 +110,12 @@ const photoAlts = async (env: Env, siteId: number) =>
 const SITE_FILES = /\/(robots\.txt|sitemap\.xml|llms\.txt|favicon\.svg|favicon\.ico)$/;
 
 
-function langOf(doc: SiteDoc, path: string) {
-  if (path === "/") return doc.langs[0];
-  const m = path.match(/^\/([a-z]{2}(?:-[a-z]{2})?)\/?$/);
-  return m && doc.langs.includes(m[1]) && m[1] !== doc.langs[0] ? m[1] : null;
+// A visitor's path, in a language: /services, /en/services, /blog/opening-day. The main language
+// has no prefix; another one's is its code.
+function route(doc: SiteDoc, path: string) {
+  const parts = path.split("/").filter(Boolean);
+  const lang = parts[0] && parts[0] !== doc.langs[0] && doc.langs.includes(parts[0]) ? parts.shift()! : doc.langs[0];
+  return { lang, at: parts.join("/") };
 }
 
 export default {
@@ -150,7 +171,11 @@ export default {
       const lang = d.doc.langs.includes(url.searchParams.get("lang") ?? "") ? url.searchParams.get("lang")! : d.doc.langs[0];
       const nonce = crypto.randomUUID();
       const alts = await photoAlts(env, id);
-      const body = pass ? renderPage(d.doc, lang, { origin: url.origin, nonce, alts }) : renderPage(d.doc, lang, { origin: url.origin, edit: true, nonce, alts }).replace("</body>", `<script nonce="${nonce}" src="/editor.js"></script></body>`);
+      // page: which page of the site, "" for the home page, like "services" or "blog/opening-day".
+      const at = url.searchParams.get("page") ?? "";
+      const drawn = renderPage(d.doc, lang, { origin: url.origin, edit: !pass, nonce, alts }, at);
+      if (!drawn) return page(404, "This page doesn't exist", "It may have been removed.");
+      const body = pass ? drawn : drawn.replace("</body>", `<script nonce="${nonce}" src="/editor.js"></script></body>`);
       return html(body, { "cache-control": "no-store", "content-security-policy": csp(nonce).replace("script-src", "script-src 'self'"), "x-frame-options": "SAMEORIGIN" });
     }
 
@@ -164,6 +189,16 @@ export default {
 
     // The test request Settings sends through a new domain: echoes its nonce.
     if (path === CHECK) return new Response("Dozokit Sites", { headers: { "x-dozokit-sites": url.searchParams.get("n") ?? "", "cache-control": "no-store" } });
+
+    // The owner's phone, adding photos through a link from the Photos tab.
+    const up = path.match(/^\/up\/([\w-]{36})$/);
+    if (up) {
+      const id = await phoneSite(env, up[1]);
+      if (!id) return page(410, "This link has expired", "Open the Photos tab on your computer for a new one.");
+      if (req.method === "POST") return upload(env, id, req).then((pid) => Response.json({ id: pid }), (e: Error) => Response.json({ error: e.message }, { status: 400 }));
+      const d = await draft(env, id);
+      return html(phonePage(d?.doc.business.name ?? "", (req.headers.get("accept-language") ?? "").startsWith("fr")), { "cache-control": "no-store" });
+    }
 
     if (path.startsWith("/img/")) {
       const id = decodeURIComponent(path.slice(5));
@@ -186,11 +221,11 @@ export default {
 
     const hit = await resolve(env, url);
     if (hit instanceof Response) return hit;
-    if (!hit) return page(200, "Coming soon", "This website is being built.");
+    if (!hit) return notYet(env, url);
     const { site, base, rest } = hit;
     if (rest === "/contact" && req.method === "POST") return contact(req, env, ctx, site, `${base}/`);
     const pub = await live(env, site);
-    if (!pub) return page(200, "Coming soon", "This website is being built.");
+    if (!pub) return notYet(env, url);
     const origin = url.origin + base;
     if (rest === "/sitemap.xml") return new Response(sitemap(pub.doc, origin, new Date(pub.at).toISOString().slice(0, 10)), { headers: { "content-type": "application/xml" } });
     // /favicon.ico is what browsers ask for by themselves: the owner's icon when there is one.
@@ -198,13 +233,14 @@ export default {
     if (rest === "/favicon.svg" || rest === "/favicon.ico") return new Response(favicon(pub.doc), { headers: { "content-type": "image/svg+xml", "cache-control": "public, max-age=3600" } });
     if (rest === "/llms.txt") return new Response(llms(pub.doc, origin), { headers: { "content-type": "text/plain; charset=utf-8" } });
 
-    const lang = langOf(pub.doc, rest);
-    if (!lang) return page(404, "This page doesn't exist", `<a href="${base}/">Go to the home page</a>.`);
+    const { lang, at } = route(pub.doc, rest);
     const s = await settings(env);
     const analytics = s.analytics_url && site.analytics_site ? { url: s.analytics_url, site: site.analytics_site } : undefined;
     const nonce = crypto.randomUUID();
     const alts = await photoAlts(env, site.id);
-    return html(renderPage(pub.doc, lang, { origin, base, analytics, nonce, alts }), {
+    const drawn = renderPage(pub.doc, lang, { origin, base, analytics, nonce, alts }, at);
+    if (!drawn) return page(404, "This page doesn't exist", `<a href="${base}/">Go to the home page</a>.`);
+    return html(drawn, {
       "content-security-policy": csp(nonce, analytics?.url),
       "cache-control": "public, max-age=60",
     });

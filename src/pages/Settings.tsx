@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
-import { Markdown } from "../lib/markdown";
-import { lang, LANGS, setLang, t } from "../lib/i18n";
+import { inline, Markdown } from "../lib/markdown";
+import { lang, LANGS, rich, setLang, t } from "../lib/i18n";
 import type { Recipe, SiteDetail, State } from "../lib/types";
 import { ChangePassword } from "./Password";
 import { ago, ConnectSteps } from "./Start";
@@ -128,6 +128,56 @@ export function SiteSettings({ site, builder, onSite, onDeleted }: { site: SiteD
 }
 
 // What every site shares: the chat apps, email, help, the maker, the password.
+type Use = { day: string; browser_minutes: number; requests?: number; rows_read?: number; rows_written?: number; limits: Record<"requests" | "rows_read" | "rows_written" | "browser_minutes", number>; token_link: string; connected: boolean; error?: string };
+
+// Today's use of the owner's Cloudflare account against the free plan. Requests and database
+// rows need a read-only token pasted once; browser time the builder counts itself.
+function Usage() {
+  const [use, setUse] = useState<Use | null>(null);
+  const [token, setToken] = useState("");
+  useEffect(() => {
+    api<Use>("/api/usage").then(setUse, () => {});
+  }, []);
+  if (!use) return null;
+  const row = (label: string, n: number | undefined, max: number, unit = "") => (
+    <tr>
+      <th scope="row">{label}</th>
+      <td>{n === undefined ? "—" : `${n.toLocaleString(lang)}${unit}`}</td>
+      <td className="muted">/ {max.toLocaleString(lang)}{unit}</td>
+      <td>{n !== undefined && <meter min={0} max={max} low={max * 0.7} high={max * 0.9} optimum={0} value={n} />}</td>
+    </tr>
+  );
+  const put = async (value: string) => setUse(await api<Use>("/api/usage", { method: "PUT", body: JSON.stringify({ token: value }) }));
+  return (
+    <section className="page-section">
+      <h2>{t("Today on Cloudflare's free plan")}</h2>
+      <p className="lead">{t("Counted since midnight UTC, when every limit starts again, for your whole Cloudflare account. Going over stops that part until then; nothing is charged.")}</p>
+      <table className="usage">
+        <tbody>
+          {row(t("Visits and requests"), use.requests, use.limits.requests)}
+          {row(t("Database rows read"), use.rows_read, use.limits.rows_read)}
+          {row(t("Database rows written"), use.rows_written, use.limits.rows_written)}
+          {row(t("Screenshots for Claude (minutes)"), use.browser_minutes, use.limits.browser_minutes)}
+        </tbody>
+      </table>
+      <p className="help">{t("Screenshot minutes are counted by Dozokit Sites itself; Cloudflare's own count may differ a little.")}</p>
+      {use.error && <p className="help help--error">{use.error}</p>}
+      {use.connected ? (
+        <button type="button" className="btn btn--quiet" onClick={() => put("")}>
+          {t("Remove the Cloudflare token")}
+        </button>
+      ) : (
+        <Form title={t("See requests and database use")} onSave={() => put(token).then(() => setToken(""))} help={inline(t("Create a read-only token in Cloudflare ([this link fills it in]({link}): click **Continue to summary**, then **Create Token**), copy it and paste it here. It can only read your account's statistics.", { link: use.token_link }))}>
+          <label className="field">
+            <span>{t("Cloudflare token")}</span>
+            <input type="password" value={token} onChange={(e) => setToken(e.target.value)} autoComplete="off" spellCheck={false} />
+          </label>
+        </Form>
+      )}
+    </section>
+  );
+}
+
 export function BuilderSettings({ state, onState, passwordRequired, version, part }: { state: State; onState: (s: State) => void; passwordRequired: boolean; version?: string; part?: string }) {
   const [mailTo, setMailTo] = useState(state.email.to);
   const [statsUrl, setStatsUrl] = useState(state.analytics_url);
@@ -152,6 +202,7 @@ export function BuilderSettings({ state, onState, passwordRequired, version, par
     <div className="settings-grid">
       <nav className="settings-nav" aria-label={t("Settings")}>
         <a href="#settings/connections" onClick={jump("connections")}>{t("Connections")}</a>
+        <a href="#settings/usage" onClick={jump("usage")}>{t("Usage")}</a>
         <a href="#settings/help" onClick={jump("help")}>{t("Help")}</a>
         <a href="#settings/account" onClick={jump("account")}>{t("Account")}</a>
       </nav>
@@ -243,6 +294,9 @@ export function BuilderSettings({ state, onState, passwordRequired, version, par
         </label>
       </Form>
 
+      <h2 className="group-h" id="usage">{t("Usage")}</h2>
+      <Usage />
+
       <h2 className="group-h" id="help">{t("Help")}</h2>
       <section className="page-section">
         <h2>{t("Step by step")}</h2>
@@ -286,16 +340,6 @@ export function BuilderSettings({ state, onState, passwordRequired, version, par
       <section className="page-section">
         <h2>{t("Version")}</h2>
         <p className="help">Dozokit Sites {version}.</p>
-        <button
-          type="button"
-          className="btn btn--quiet"
-          onClick={async () => {
-            await api("/api/logout", { method: "POST" });
-            location.reload();
-          }}
-        >
-          {t("Sign out")}
-        </button>
       </section>
     </div>
     </div>

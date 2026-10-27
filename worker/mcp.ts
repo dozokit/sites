@@ -114,7 +114,10 @@ const TOOLS: Tool[] = [
     inputSchema: { type: "object", properties: { site_id: { type: "number" } }, required: ["site_id"] },
     run: async (a, { env, origin }) => {
       const { id } = await own(env, a.site_id);
-      return (await library(env, id)).map((p) => ({ id: p.id, url: `${origin}/img/${p.id}`, alt: p.alt, used_on_page: p.used, from: p.source }));
+      const photos = (await library(env, id)).map((p) => ({ id: p.id, url: `${origin}/img/${p.id}`, alt: p.alt, used_on_page: p.used, from: p.source }));
+      // Few photos: the owner usually has more on their phone, a scan away.
+      if (photos.length >= 8) return photos;
+      return { photos, few_photos: `Only ${photos.length}. Ask the owner to add their own from their phone: in the builder, Photos tab → From your phone → Show the code, then scan it (${editor(origin, id)}/photos). Never take photos from Instagram, Facebook or Google yourself.` };
     },
   },
   {
@@ -133,14 +136,14 @@ const TOOLS: Tool[] = [
     description: "See the site as visitors will, as a screenshot of the current draft: desktop or phone, the first screen or the whole page. Look after every create_site, edit_site or set_style, and keep improving until it looks designed, not templated.",
     inputSchema: {
       type: "object",
-      properties: { site_id: { type: "number" }, device: { type: "string", enum: ["desktop", "phone"] }, whole_page: { type: "boolean" }, lang: { type: "string" } },
+      properties: { site_id: { type: "number" }, device: { type: "string", enum: ["desktop", "phone"] }, whole_page: { type: "boolean" }, lang: { type: "string" }, page: { type: "string", description: 'Which page: "" for the home page (the default), a page\'s slug, "blog", "blog/<post slug>", or "legal", "privacy", "cookies"' } },
       required: ["site_id"],
     },
     run: async (a, { env, origin }) => {
       const { id, doc } = await own(env, a.site_id);
       const lang = doc.langs.includes(String(a.lang)) ? String(a.lang) : doc.langs[0];
       const phone = a.device === "phone";
-      const shot = await look(env, origin, id, doc, { phone, whole: a.whole_page === true, lang });
+      const shot = await look(env, origin, id, doc, { phone, whole: a.whole_page === true, lang, page: typeof a.page === "string" ? a.page : "" });
       return new Seen([shot.image], { site_id: id, device: phone ? "phone" : "desktop", whole_page: a.whole_page === true, warnings: shot.warnings, review_yourself: REVIEW, editor: editor(origin, id) });
     },
   },
@@ -152,7 +155,7 @@ const TOOLS: Tool[] = [
   },
   {
     name: "edit_site",
-    description: 'Change a site with a short list of operations, never a whole new site: { "op": "set", "path": "content.fr.sections.2.title", "value": ... }, { "op": "add_section", "lang", "at", "section" }, { "op": "remove_section", "lang", "id" }, { "op": "move_section", "lang", "id", "to" }. Change every language unless the owner named one. Every change is kept and can be undone in the editor.',
+    description: 'Change a site with a short list of operations, never a whole new site: { "op": "set", "path": "content.fr.sections.2.title", "value": ... }, { "op": "add_section", "lang", "at", "section", "page"? }, { "op": "remove_section", "lang", "id", "page"? }, { "op": "move_section", "lang", "id", "to", "page"? } (page: a page\'s slug, for its sections instead of the home page\'s), { "op": "add_page", "lang", "page", "at"? }, { "op": "remove_page", "lang", "slug" }, { "op": "add_post", "lang", "post" }, { "op": "remove_post", "lang", "slug" }. Pages and posts only when the owner wants them. Change every language unless the owner named one. Every change is kept and can be undone in the editor.',
     inputSchema: {
       type: "object",
       properties: { site_id: { type: "number" }, ops: { type: "array", items: { type: "object" } }, note: { type: "string", description: "What changed, in a few words, for the history" } },
@@ -164,7 +167,9 @@ const TOOLS: Tool[] = [
       const why = problem(next);
       if (why) throw new AiError(`That change would break the site: ${why}`);
       await save(env, id, next, String(a.note ?? `Changed with ${app}`).slice(0, 200), "chat");
-      return shown(env, origin, id, { ok: true, editor: editor(origin, id) });
+      // The screenshots show the page the change was on.
+      const on = (a.ops as Op[]).map((o) => ("page" in o && typeof o.page === "string" ? o.page : o.op === "add_page" ? o.page?.slug : o.op === "add_post" ? `blog/${o.post?.slug}` : undefined)).find(Boolean);
+      return shown(env, origin, id, { ok: true, editor: editor(origin, id) }, on ?? "");
     },
   },
   {
@@ -236,8 +241,8 @@ const changed = (asked: unknown, got: Record<string, string>) => {
 
 // A screenshot of the draft, with the warnings measured in the browser: the contrast of every
 // text, overlapping headline lines and, on a desktop, whether the hero's action shows without scrolling.
-async function look(env: Env, origin: string, id: number, doc: SiteDoc, o: { phone: boolean; whole: boolean; lang?: string }) {
-  const url = `${origin}/admin/preview?site=${id}&lang=${o.lang ?? doc.langs[0]}&pass=${await previewPass(env)}`;
+async function look(env: Env, origin: string, id: number, doc: SiteDoc, o: { phone: boolean; whole: boolean; lang?: string; page?: string }) {
+  const url = `${origin}/admin/preview?site=${id}&lang=${o.lang ?? doc.langs[0]}&page=${encodeURIComponent(o.page ?? "")}&pass=${await previewPass(env)}`;
   const visible = o.phone ? "null" : `(() => { const b = document.querySelector("header.hero a.btn, header.hero .btn, .s--bare a"); return b ? b.getBoundingClientRect().bottom <= innerHeight : null })()`;
   const shot = await shoot(env, url, { width: o.phone ? 390 : 1280, height: o.phone ? 844 : 800, full: o.whole, probe: `({ actionVisible: ${visible}, lowContrast: ${CONTRAST_PROBE}, tightHeadline: ${OVERLAP_PROBE} })` });
   const p = (shot.answer ?? {}) as { actionVisible?: boolean | null; lowContrast?: Low[]; tightHeadline?: number | null };
@@ -246,11 +251,11 @@ async function look(env: Env, origin: string, id: number, doc: SiteDoc, o: { pho
 
 // After every change the chat app gets the page back as pictures (the whole page on a desktop,
 // the first screen on a phone) with its warnings: many chat apps never call preview_site themselves.
-async function shown(env: Env, origin: string, id: number, answer: object) {
+async function shown(env: Env, origin: string, id: number, answer: object, page = "") {
   const doc = (await draft(env, id))!.doc;
   try {
-    const [desk, phone] = await Promise.all([look(env, origin, id, doc, { phone: false, whole: true }), look(env, origin, id, doc, { phone: true, whole: false })]);
-    return new Seen([desk.image, phone.image], { ...answer, screenshots: "The first picture is the whole page on a desktop, the second the first screen on a phone.", warnings: [...new Set([...desk.warnings, ...phone.warnings])], review_yourself: REVIEW, next: LOOKED });
+    const [desk, phone] = await Promise.all([look(env, origin, id, doc, { phone: false, whole: true, page }), look(env, origin, id, doc, { phone: true, whole: false, page })]);
+    return new Seen([desk.image, phone.image], { ...answer, screenshots: `The first picture is the whole ${page ? `/${page} page` : "home page"} on a desktop, the second its first screen on a phone.`, warnings: [...new Set([...desk.warnings, ...phone.warnings])], review_yourself: REVIEW, next: LOOKED });
   } catch {
     return { ...answer, next: LOOK };
   }
@@ -272,6 +277,7 @@ const PROCESS = `Propose, don't interrogate. The owner should answer once, ideal
    If their old site books through a tool (RestoPro, TheFork, Zenchef, Calendly…), keep it: a Book button that opens their existing booking page; widgets can't be embedded, links always work. Ask only for facts you could not find and the page needs to work (a phone number for a call button, opening hours): at most three questions, and none about taste. End with "Say go, or tell me what to change."
 3. On "go" (or their changes), write it with create_site, your own CSS and your own HTML sections where the standard ones don't fit. Look at it with preview_site on desktop and phone, whole page; read the warnings it returns and answer its two review questions yourself; fix and look again (at most three rounds). Then show the owner the editor link, one screenshot's worth of what you made in words, and the list of what you left out of their old site and why.
 4. Publish only when they say so.
+One page is the default. Add pages (add_page in edit_site: Services, Contact…) or a blog (add_post) only when the owner asks, or when their old site has pages worth keeping (say so in your proposal). The legal notice, privacy and cookie pages are built in from business and linked in the footer: never write them; ask the owner once for business.legal (legal form and capital, SIRET or company number, publication director), which the legal notice needs in France.
 If you have a design skill such as Hallmark, use it for the design: these rules are the minimum.`;
 
 // Where the action lives and what the page is built around, by what visitors come to do.
@@ -306,7 +312,7 @@ const HARD_RULES = `- Only facts the owner gave or that read_website found: no i
 // What the chat's CSS can aim at. The page markup is fixed; its look is entirely the chat's.
 const DESIGN = `With layout "custom" (the default for you) the page has no styling but a bare structure: you write all of it in theme.css. The presets exist only if the owner wants a quick start.
 Fonts: any two families on fonts.bunny.net, as theme.fonts { "heading", "body" }. Colours: theme.palette { paper, ink, accent, soft } become --paper, --ink, --accent, --soft; --h and --b are the fonts.
-Markup: body.l-custom > .topbar (.bar, a.brand with .brand-name or img.logo, nav.nav a, .langs, a.btn) · main > header.hero (.hero-grid, .hero-words, h1, p.lead, p.actions a.btn, a.btn--line, .hero-media img.hero-img) · section.s.s--<kind> > .wrap > h2 (kinds: services, prices, about, reviews, faq, hours, gallery, contact, custom; lists are ul.items > li.item with img.item-img, h3, p.price, p; ul.reviews li blockquote; details.qa; ul.gallery li img; table.hours; .contact; form.form) · footer.foot (.foot-grid, .foot-name, .foot-end) · a.callbar on phones.
+Markup: body.l-custom > .topbar (.bar, a.brand with .brand-name or img.logo, nav.nav a, .langs, a.btn) · main > header.hero (.hero-grid, .hero-words, h1, p.lead, p.actions a.btn, a.btn--line, .hero-media img.hero-img) · section.s.s--<kind> > .wrap > h2 (kinds: services, prices, about, reviews, faq, hours, gallery, contact, custom; lists are ul.items > li.item with img.item-img, h3, p.price, p; ul.reviews li blockquote; details.qa; ul.gallery li img; table.hours; .contact; form.form) · footer.foot (.foot-grid, .foot-name, nav.foot-links, .foot-end) · a.callbar on phones. Other pages: the same topbar (nav.nav--pages, the current link with aria-current) and footer; a page's sections as above, its first heading an h1; the blog list section.s--blog > .wrap > h1, ul.posts > li.post-card (img.item-img, h2 a, p.post-date, p); a post article.s--post > .wrap.post (p.post-date, h1, img.post-img, .post-body); legal pages section.s--legal > .wrap.post.
 Sections are yours too: a "custom" section is your own HTML (no script). With "bare": true it has no wrapper and no heading from the builder, so it can be any block you design (a menu laid out like a printed menu, a photo mosaic, a split banner…). The hero stays the first section and holds the page's one h1, but your CSS can make it look like anything.`;
 
 const INSTRUCTIONS = "This is the owner's own website builder (Dozokit Sites). Call get_writing_guide first and follow how_to_work: gather what you can (read_website, view_photos, five good sites of the same kind), then send one proposal with everything decided and ask only for missing facts; the owner answers once, ideally with go. After writing, check your page with preview_site and improve it before showing it. Use only real facts. Publish only when asked. If you have a design skill such as Hallmark, use it. For domains, payments, booking, contact emails, analytics or Google Maps, call get_recipe and pass its steps on as they are. The owner may paste what they picked in the editor: a layer trail, then in brackets the path in the site JSON (for get_site and edit_site) and, for blocks you wrote, a CSS path inside it; change exactly that.";

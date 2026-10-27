@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.9 – 2026-10-27
+
+- More than one page: Claude can add pages (Services, Contact…, each in the menu) and a blog (a list of posts at /blog, each post at /blog/<name>). You pick the page to edit at the top of the editor, and change texts and photos on it as on the home page.
+- Every site gets a legal notice, a privacy page and a cookie page, linked at the bottom of each page and written from Site details (new: legal form, company number, publication director) and from what the site really does.
+- Photos from your phone: the Photos tab shows a code to scan, and the photos you pick on your phone arrive in the library, no password needed (the link works 30 minutes).
+- Settings → Usage: today's use of Cloudflare's free plan (visits and requests, database rows, screenshot minutes for Claude), with a read-only token you paste once.
+- Settings, Help, Account, Updates and Sign out are in one menu at the top right of every screen; a site's own tabs show only that site.
+- After publishing, a "Use your own domain" step when the site still has its Dozokit Sites address.
+- A fresh install's address says Dozokit Sites is installed, with a link to your builder, until you publish a site.
+- Fixed: a new copy made with the Deploy button builds again (the update button's text no longer lives in the .github folder, which the copy doesn't have).
+
 ## 0.1.8 – 2026-10-26
 
 - Site details, in the editor bar: the phone and email (a new one replaces the old one in every button, link and block of the page, blocks Claude wrote included), the logo, the favicon and the Google Maps link.

@@ -16,6 +16,8 @@ export interface Business {
   logo?: string; // an image id
   favicon?: string; // an image id for the browser tab; without one, the initial on the accent colour
   socials?: string[];
+  // For the legal notice: "SARL au capital de 5 000 €", "SIRET 123 456 789 00012", who answers for the site.
+  legal?: { form?: string; number?: string; director?: string };
 }
 
 export interface Theme {
@@ -99,7 +101,18 @@ export interface Content {
   title: string; // the <title>: trade and town first ("Plombier à Lille | Martin Plomberie")
   description: string; // meta description, under 160 characters
   sections: Section[];
+  pages?: Page[]; // more pages, each at /<slug>, in the menu
+  posts?: Post[]; // the blog: the list at /blog, each post at /blog/<slug>
 }
+
+// menu: the short name in the site's menu; title and description: for Google, like the home page's.
+export type Page = { slug: string; menu: string; title: string; description: string; sections: Section[] };
+// date: "2026-10-27". body: Markdown (paragraphs, ## headings, - lists, **bold**, *italic*, [links](https://…)).
+export type Post = { slug: string; title: string; date: string; description: string; image?: string; body: string };
+
+// Addresses a page can't take: the blog, the legal pages and the builder's own.
+export const TAKEN = ["blog", "legal", "privacy", "cookies", "contact", "img", "admin", "api", "up", "mcp", "oauth"];
+const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 export interface SiteDoc {
   langs: string[]; // the first one is served at /, the others at /<lang>/
@@ -137,15 +150,38 @@ export function problem(doc: unknown): string | null {
     const c = d.content?.[lang];
     if (!c) return `The ${lang} version is missing.`;
     if (!c.title?.trim()) return `The ${lang} version needs a page title.`;
-    if (!Array.isArray(c.sections) || !c.sections.length) return `The ${lang} version has no section.`;
-    const ids = new Set<string>();
-    for (const s of c.sections) {
-      if (!KINDS.includes(s.kind)) return `"${s.kind}" isn't a kind of section this builder knows.`;
-      if (!s.id || ids.has(s.id)) return "Each section needs its own id.";
-      if (!String(s.title ?? "").trim()) return `Each section needs a title (the ${s.kind} section in ${lang} has none).`;
-      ids.add(s.id);
-      if ("items" in s && !Array.isArray(s.items)) return `The ${s.kind} section needs a list.`;
+    const home = sectionsProblem(c.sections, `the ${lang} home page`);
+    if (home) return home;
+    if (c.pages !== undefined && !Array.isArray(c.pages)) return "pages has to be a list.";
+    const slugs = new Set<string>();
+    for (const p of c.pages ?? []) {
+      if (!SLUG.test(String(p?.slug)) || TAKEN.includes(p.slug) || d.langs.includes(p.slug)) return `"${p?.slug}" can't be a page address: use lowercase words joined by dashes, like "services", and none of ${TAKEN.join(", ")}.`;
+      if (slugs.has(p.slug)) return `Two ${lang} pages have the address "${p.slug}".`;
+      slugs.add(p.slug);
+      if (!String(p.menu ?? "").trim() || !String(p.title ?? "").trim()) return `The ${lang} page "${p.slug}" needs a menu name and a title.`;
+      const why = sectionsProblem(p.sections, `the ${lang} page "${p.slug}"`);
+      if (why) return why;
     }
+    if (c.posts !== undefined && !Array.isArray(c.posts)) return "posts has to be a list.";
+    const posts = new Set<string>();
+    for (const p of c.posts ?? []) {
+      if (!SLUG.test(String(p?.slug)) || posts.has(p.slug)) return `Each ${lang} post needs its own address, lowercase words joined by dashes ("${p?.slug}" isn't one).`;
+      posts.add(p.slug);
+      if (!String(p.title ?? "").trim() || typeof p.body !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(String(p.date))) return `The ${lang} post "${p.slug}" needs a title, a body and a date like 2026-10-27.`;
+    }
+  }
+  return null;
+}
+
+function sectionsProblem(list: Section[], where: string): string | null {
+  if (!Array.isArray(list) || !list.length) return `${where[0].toUpperCase()}${where.slice(1)} has no section.`;
+  const ids = new Set<string>();
+  for (const s of list) {
+    if (!KINDS.includes(s.kind)) return `"${s.kind}" isn't a kind of section this builder knows.`;
+    if (!s.id || ids.has(s.id)) return "Each section needs its own id.";
+    if (!String(s.title ?? "").trim()) return `Each section needs a title (the ${s.kind} section on ${where} has none).`;
+    ids.add(s.id);
+    if ("items" in s && !Array.isArray(s.items)) return `The ${s.kind} section needs a list.`;
   }
   return null;
 }

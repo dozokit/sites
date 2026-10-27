@@ -12,6 +12,7 @@
   "dependencies": {
     "@cloudflare/puppeteer": "^1.4.0",
     "@fontsource/geist-mono": "^5.3.0",
+    "qrcode-generator": "^2.0.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
@@ -29,7 +30,7 @@
   "cloudflare": {
     "bindings": {
       "PASSWORD": {
-        "description": "The password to sign in to your site builder, 12 characters or more."
+        "description": "The password to sign in to your site builder, 12 characters or more. After the deploy, open your new address followed by **/admin**."
       },
       "DB": {
         "description": "Where your site, its versions and your contact messages are kept."

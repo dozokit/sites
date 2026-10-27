@@ -14,8 +14,8 @@ export interface Extras {
 }
 
 const LABELS = {
-  en: { write: "Write to us", call: "Call", directions: "Directions", review: "Leave a review", send: "Send", name: "Your name", email: "Your email", phone: "Your phone (optional)", message: "Your message", sent: "Thank you, your message is on its way.", failed: "That didn't go through. Please call us instead.", hours: "Opening hours", closed: "Closed", menu: "Menu", languages: "Language", services: "Services", prices: "Prices", about: "About", gallery: "Photos", reviews: "Reviews", contact: "Contact", hoursNav: "Hours" },
-  fr: { write: "Nous écrire", call: "Appeler", directions: "Itinéraire", review: "Laisser un avis", send: "Envoyer", name: "Votre nom", email: "Votre e-mail", phone: "Votre téléphone (facultatif)", message: "Votre message", sent: "Merci, votre message est bien parti.", failed: "L’envoi n’a pas marché. Appelez-nous plutôt.", hours: "Horaires", closed: "Fermé", menu: "Menu", languages: "Langue", services: "Services", prices: "Tarifs", about: "À propos", gallery: "Photos", reviews: "Avis", contact: "Contact", hoursNav: "Horaires" },
+  en: { write: "Write to us", call: "Call", directions: "Directions", review: "Leave a review", send: "Send", name: "Your name", email: "Your email", phone: "Your phone (optional)", message: "Your message", sent: "Thank you, your message is on its way.", failed: "That didn't go through. Please call us instead.", hours: "Opening hours", closed: "Closed", menu: "Menu", languages: "Language", services: "Services", prices: "Prices", about: "About", gallery: "Photos", reviews: "Reviews", contact: "Contact", hoursNav: "Hours", blog: "Blog", legal: "Legal notice", privacy: "Privacy", cookies: "Cookies" },
+  fr: { write: "Nous écrire", call: "Appeler", directions: "Itinéraire", review: "Laisser un avis", send: "Envoyer", name: "Votre nom", email: "Votre e-mail", phone: "Votre téléphone (facultatif)", message: "Votre message", sent: "Merci, votre message est bien parti.", failed: "L’envoi n’a pas marché. Appelez-nous plutôt.", hours: "Horaires", closed: "Fermé", menu: "Menu", languages: "Langue", services: "Services", prices: "Tarifs", about: "À propos", gallery: "Photos", reviews: "Avis", contact: "Contact", hoursNav: "Horaires", blog: "Blog", legal: "Mentions légales", privacy: "Confidentialité", cookies: "Cookies" },
 };
 export type Labels = typeof LABELS.en;
 const labels = (lang: string, c: Content & { labels?: Partial<Labels> }) => ({ ...LABELS.en, ...(LABELS[lang.slice(0, 2) as "en" | "fr"] ?? {}), ...(c.labels ?? {}) });
@@ -65,11 +65,13 @@ function actions(b: Business, l: Labels, contactId?: string) {
   return out.length ? `<p class="actions">${out.join("")}</p>` : "";
 }
 
-function section(s: Section, lang: string, doc: SiteDoc, c: Content, x: Extras, first: boolean) {
-  const base = `content.${lang}.sections.${c.sections.indexOf(s)}`;
+// at: where the section list lives in the document, the home page's or a page's.
+function section(s: Section, lang: string, doc: SiteDoc, c: Content, x: Extras, first: boolean, at = `content.${lang}.sections`) {
+  const base = `${at}.${c.sections.indexOf(s)}`;
   const l = labels(lang, c);
   const b = doc.business;
-  const head = (tag: string) => text(tag, s.title, `${base}.title`, x);
+  // A page that doesn't open with a hero gets its main heading from its first section.
+  const head = (tag: string) => text(first ? "h1" : tag, s.title, `${base}.title`, x);
   const open = `<section id="${esc(s.id)}" class="s s--${s.kind}"${x.edit ? ` data-section="${esc(base)}"` : ""}><div class="wrap">`;
   const close = `</div></section>`;
   switch (s.kind) {
@@ -129,30 +131,38 @@ function hero(s: Extract<Section, { kind: "hero" }>, base: string, doc: SiteDoc,
 
 const NAV: Section["kind"][] = ["services", "prices", "about", "gallery", "reviews", "hours", "contact"];
 
-// The bar on top of every page: the logo or name, the main sections, the languages, and a Call button.
-function topbar(doc: SiteDoc, lang: string, c: Content, l: Labels, x: Extras) {
+// The bar on top of every page: the logo or name, the pages (or the home page's main sections),
+// the languages, and a Call button.
+function topbar(doc: SiteDoc, lang: string, c: Content, l: Labels, x: Extras, path: string) {
   const b = doc.business;
   const brand = b.logo ? `<img class="logo" src="/img/${esc(encodeURIComponent(b.logo))}" alt="${esc(b.name)}" width="160" height="48">` : `<span class="brand-name">${esc(b.name)}</span>`;
+  const home = (x.base ?? "") + langPath(doc, lang);
+  const pages = [...(c.pages ?? []).map((p) => [p.slug, p.menu]), ...(c.posts?.length ? [["blog", l.blog]] : [])];
   // One link per kind of section: three menus in a row are one "Prices" link to the first.
-  const links = c.sections
+  const anchors = c.sections
     .filter((s, i, all) => NAV.includes(s.kind) && all.findIndex((o) => o.kind === s.kind) === i)
-    .slice(0, 4)
-    .map((s) => `<a href="#${esc(s.id)}">${esc(l[(s.kind === "hours" ? "hoursNav" : s.kind) as keyof Labels])}</a>`)
-    .join("");
+    .map((s) => `<a href="${path ? esc(home) : ""}#${esc(s.id)}">${esc(l[(s.kind === "hours" ? "hoursNav" : s.kind) as keyof Labels])}</a>`);
+  const links = pages.length
+    ? pages.map(([slug, menu]) => `<a href="${esc(home + slug)}"${path === slug || path.startsWith(`${slug}/`) ? ' aria-current="page"' : ""}>${esc(menu)}</a>`).join("")
+    : anchors.slice(0, 4).join("");
   const others = doc.langs.filter((o) => o !== lang);
-  const langs = others.length ? `<span class="langs" aria-label="${esc(l.languages)}">${others.map((o) => `<a href="${esc((x.base ?? "") + langPath(doc, o))}" hreflang="${esc(o)}" lang="${esc(o)}">${esc(o.toUpperCase())}</a>`).join("")}</span>` : "";
+  const langs = others.length ? `<span class="langs" aria-label="${esc(l.languages)}">${others.map((o) => `<a href="${esc((x.base ?? "") + langPath(doc, o) + (exists(doc, o, path) ? path : ""))}" hreflang="${esc(o)}" lang="${esc(o)}">${esc(o.toUpperCase())}</a>`).join("")}</span>` : "";
   const call = b.phone ? `<a class="btn btn--small" href="tel:${esc(tel(b.phone))}" data-dozokit-goal="call">${esc(l.call)}</a>` : "";
-  return `<div class="topbar"><div class="wrap bar"><a class="brand" href="${esc((x.base ?? "") + langPath(doc, lang))}">${brand}</a><nav class="nav" aria-label="${esc(l.menu)}">${links}</nav>${langs}${call}</div></div>`;
+  return `<div class="topbar"><div class="wrap bar"><a class="brand" href="${esc(home)}">${brand}</a><nav class="nav${pages.length ? " nav--pages" : ""}" aria-label="${esc(l.menu)}">${links}</nav>${langs}${call}</div></div>`;
 }
 
-function footer(doc: SiteDoc, c: Content, l: Labels) {
+function footer(doc: SiteDoc, lang: string, c: Content, l: Labels, x: Extras) {
   const b = doc.business;
+  const home = (x.base ?? "") + langPath(doc, lang);
+  const links = [...(c.pages ?? []).map((p) => [p.slug, p.menu]), ...(c.posts?.length ? [["blog", l.blog]] : []), ["legal", l.legal], ["privacy", l.privacy], ["cookies", l.cookies]]
+    .map(([slug, name]) => `<a href="${esc(home + slug)}">${esc(name)}</a>`)
+    .join("");
   const maps = b.google_url || (b.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${b.name} ${b.address}`)}` : "");
   return `<footer class="foot"><div class="wrap foot-grid">
 <div><p class="foot-name">${esc(b.name)}</p><p>${esc(b.trade)}, ${esc(b.town)}</p></div>
 <div>${b.address ? `<p>${esc(b.address)}</p>` : ""}${b.phone ? `<p><a href="tel:${esc(tel(b.phone))}">${esc(b.phone)}</a></p>` : ""}${b.email ? `<p><a href="mailto:${esc(b.email)}">${esc(b.email)}</a></p>` : ""}${maps ? `<p><a href="${esc(maps)}" rel="noopener">${esc(l.directions)}</a></p>` : ""}</div>
 <div>${hoursTable(b, l, c)}</div>
-</div><p class="wrap foot-end">© ${new Date().getFullYear()} ${esc(b.name)}</p></footer>${b.phone ? `<a class="callbar" href="tel:${esc(tel(b.phone))}" data-dozokit-goal="call">${esc(l.call)} ${esc(b.phone)}</a>` : ""}`;
+</div><nav class="wrap foot-links" aria-label="${esc(l.menu)}">${links}</nav><p class="wrap foot-end">© ${new Date().getFullYear()} ${esc(b.name)}</p></footer>${b.phone ? `<a class="callbar" href="tel:${esc(tel(b.phone))}" data-dozokit-goal="call">${esc(l.call)} ${esc(b.phone)}</a>` : ""}`;
 }
 
 // schema.org LocalBusiness from real fields only: nothing invented.
@@ -177,43 +187,188 @@ function jsonLd(doc: SiteDoc, lang: string, x: Extras) {
   return blocks.map((b) => `<script type="application/ld+json">${JSON.stringify(b).replace(/</g, "\\u003c")}</script>`).join("");
 }
 
-export function renderPage(doc: SiteDoc, lang: string, x: Extras) {
+// Whether a path exists in a language: the home page, a page, the blog and its posts, the legal pages.
+export function exists(doc: SiteDoc, lang: string, path: string) {
   const c = doc.content[lang];
+  const post = path.match(/^blog\/(.+)$/)?.[1];
+  return !path || LEGAL.includes(path) || Boolean(c.pages?.some((p) => p.slug === path)) || (path === "blog" && Boolean(c.posts?.length)) || Boolean(post && c.posts?.some((p) => p.slug === post));
+}
+
+// Every address of a language, for the sitemap and the download (the legal pages left out of the sitemap).
+export const paths = (doc: SiteDoc, lang: string) => {
+  const c = doc.content[lang];
+  return ["", ...(c.pages ?? []).map((p) => p.slug), ...(c.posts?.length ? ["blog", ...c.posts.map((p) => `blog/${p.slug}`)] : [])];
+};
+
+const LEGAL = ["legal", "privacy", "cookies"];
+
+// What a path shows: its title and description for Google, and its body. null: no such page.
+function view(doc: SiteDoc, lang: string, path: string, x: Extras): { title: string; description: string; body: string; ld?: object } | null {
+  const c = doc.content[lang];
+  const l = labels(lang, c);
+  const b = doc.business;
+  const home = (x.base ?? "") + langPath(doc, lang);
+  if (!path) return { title: c.title, description: c.description, body: c.sections.map((s, i) => section(s, lang, doc, c, x, i === 0)).join("\n") };
+  const i = (c.pages ?? []).findIndex((p) => p.slug === path);
+  if (i >= 0) {
+    const page = c.pages![i];
+    const pc = { ...c, sections: page.sections };
+    return { title: page.title, description: page.description, body: page.sections.map((s, k) => section(s, lang, doc, pc, x, k === 0, `content.${lang}.pages.${i}.sections`)).join("\n") };
+  }
+  const posts = c.posts ?? [];
+  const date = (d: string) => `<time datetime="${esc(d)}">${esc(new Date(`${d}T12:00:00Z`).toLocaleDateString(lang, { day: "numeric", month: "long", year: "numeric" }))}</time>`;
+  if (path === "blog" && posts.length) {
+    const list = posts.map((p, k) => `<li class="post-card">${p.image ? `<a href="${esc(`${home}blog/${p.slug}`)}" tabindex="-1">${img(p.image, p.title, `content.${lang}.posts.${k}.image`, x, "item-img")}</a>` : ""}<h2><a href="${esc(`${home}blog/${p.slug}`)}">${esc(p.title)}</a></h2><p class="post-date">${date(p.date)}</p>${text("p", p.description, `content.${lang}.posts.${k}.description`, x)}</li>`).join("");
+    return { title: `${l.blog} | ${b.name}`, description: posts[0].description || c.description, body: `<section class="s s--blog"><div class="wrap"><h1>${esc(l.blog)}</h1><ul class="posts">${list}</ul></div></section>` };
+  }
+  const k = posts.findIndex((p) => `blog/${p.slug}` === path);
+  if (k >= 0) {
+    const p = posts[k];
+    const at = `content.${lang}.posts.${k}`;
+    return {
+      title: `${p.title} | ${b.name}`,
+      description: p.description,
+      body: `<article class="s s--post"><div class="wrap post"><p class="post-date"><a href="${esc(home)}blog">${esc(l.blog)}</a> · ${date(p.date)}</p>${text("h1", p.title, `${at}.title`, x)}${img(p.image, p.title, `${at}.image`, x, "post-img")}<div class="post-body"${x.edit ? ` data-edit="${esc(at)}.body"` : ""}>${md(p.body)}</div></div></article>`,
+      ld: { "@context": "https://schema.org", "@type": "BlogPosting", headline: p.title, datePublished: p.date, description: p.description, author: { "@type": "Organization", name: b.name }, ...(p.image && { image: `${x.origin}/img/${encodeURIComponent(p.image)}` }) },
+    };
+  }
+  if (LEGAL.includes(path)) return legal(doc, lang, path, c, l, x);
+  return null;
+}
+
+export function renderPage(doc: SiteDoc, lang: string, x: Extras, path = "") {
+  const c = doc.content[lang];
+  const v = view(doc, lang, path, x);
+  if (!v) return null;
   const t = doc.theme;
   const f = fontsOf(t.fonts);
   const fonts = [...new Set([f.heading, f.body])].map((n) => `${n.toLowerCase().replace(/ /g, "-")}:400,600,700`).join("|");
-  const canonical = x.origin + langPath(doc, lang);
-  const body = c.sections.map((s, i) => section(s, lang, doc, c, x, i === 0)).join("\n");
+  const at = (l: string) => x.origin + langPath(doc, l) + path;
+  const alternates = doc.langs.filter((l) => exists(doc, l, path));
   return `<!doctype html>
 <html lang="${esc(lang)}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(c.title)}</title>
-<meta name="description" content="${esc(c.description)}">
-<link rel="canonical" href="${esc(canonical)}">
-${doc.langs.length > 1 ? doc.langs.map((l) => `<link rel="alternate" hreflang="${esc(l)}" href="${esc(x.origin + langPath(doc, l))}">`).join("\n") + `\n<link rel="alternate" hreflang="x-default" href="${esc(x.origin)}/">` : ""}
-<meta property="og:type" content="website">
-<meta property="og:title" content="${esc(c.title)}">
-<meta property="og:description" content="${esc(c.description)}">
-<meta property="og:url" content="${esc(canonical)}">
+<title>${esc(v.title)}</title>
+<meta name="description" content="${esc(v.description)}">
+<link rel="canonical" href="${esc(at(lang))}">
+${alternates.length > 1 ? alternates.map((l) => `<link rel="alternate" hreflang="${esc(l)}" href="${esc(at(l))}">`).join("\n") + `\n<link rel="alternate" hreflang="x-default" href="${esc(at(doc.langs[0]))}">` : ""}
+<meta property="og:type" content="${v.ld ? "article" : "website"}">
+<meta property="og:title" content="${esc(v.title)}">
+<meta property="og:description" content="${esc(v.description)}">
+<meta property="og:url" content="${esc(at(lang))}">
 ${x.edit ? '<meta name="robots" content="noindex">' : ""}
 ${doc.business.favicon ? `<link rel="icon" href="/img/${esc(encodeURIComponent(doc.business.favicon))}">` : `<link rel="icon" href="${esc(x.base ?? "")}/favicon.svg" type="image/svg+xml">`}
 <link rel="preconnect" href="https://fonts.bunny.net">
 <link rel="stylesheet" href="https://fonts.bunny.net/css?family=${esc(fonts)}&display=swap">
 <style>${css(doc)}</style>
-${jsonLd(doc, lang, x)}
+${path ? (v.ld ? `<script type="application/ld+json">${JSON.stringify(v.ld).replace(/</g, "\\u003c")}</script>` : "") : jsonLd(doc, lang, x)}
 ${x.analytics ? `<script defer data-site="${esc(x.analytics.site)}" src="${esc(x.analytics.url)}/t.js"></script>` : ""}
 </head>
 <body class="l-${layoutOf(doc)}">
-${topbar(doc, lang, c, labels(lang, c), x)}
+${topbar(doc, lang, c, labels(lang, c), x, path)}
 <main>
-${body}
+${v.body}
 </main>
-${footer(doc, c, labels(lang, c))}
+${footer(doc, lang, c, labels(lang, c), x)}
 <script nonce="${esc(x.nonce)}">${FORM_JS}</script>
 </body>
 </html>`;
+}
+
+// Enough Markdown for a blog post: paragraphs, ## and ### headings, - lists, **bold**, *italic*
+// and [links](https://…). Everything is escaped first, so a post can't carry HTML.
+export function md(src: string) {
+  const inline = (t: string) =>
+    esc(t)
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*(.+?)\*/g, "<em>$1</em>")
+      .replace(/\[([^\]]+)\]\((https:\/\/[^)\s]+)\)/g, '<a href="$2" rel="noopener">$1</a>');
+  return String(src ?? "")
+    .split(/\n{2,}/)
+    .map((block) => block.trim())
+    .filter(Boolean)
+    .map((block) => {
+      const h = block.match(/^(#{2,3})\s+(.*)$/);
+      if (h) return `<h${h[1].length}>${inline(h[2])}</h${h[1].length}>`;
+      const lines = block.split("\n");
+      if (lines.every((li) => /^[-*]\s/.test(li))) return `<ul>${lines.map((li) => `<li>${inline(li.slice(2))}</li>`).join("")}</ul>`;
+      return `<p>${lines.map(inline).join("<br>")}</p>`;
+    })
+    .join("\n");
+}
+
+// The legal notice, privacy and cookie pages, written from the business details and from what the
+// site really does (its form, its visitor counts, what its custom blocks embed), so they stay true.
+function legal(doc: SiteDoc, lang: string, path: string, c: Content, l: Labels, x: Extras) {
+  const b = doc.business;
+  const fr = lang.startsWith("fr");
+  const all = doc.langs.flatMap((k) => [doc.content[k].sections, ...(doc.content[k].pages ?? []).map((p) => p.sections)]).flat();
+  const form = all.some((s) => s.kind === "contact" && s.form);
+  const html = all.filter((s) => s.kind === "custom").map((s) => (s as { html: string }).html).join(" ");
+  const embeds = [
+    [/youtube/i, "YouTube (Google)"],
+    [/vimeo/i, "Vimeo"],
+    [/google\.com\/maps|maps\.google/i, "Google Maps"],
+    [/instagram/i, "Instagram (Meta)"],
+    [/cal\.com/i, "Cal.com"],
+  ].filter(([re]) => (re as RegExp).test(html)).map(([, name]) => name as string);
+  const contact = [b.email && `<a href="mailto:${esc(b.email)}">${esc(b.email)}</a>`, b.phone && esc(b.phone)].filter(Boolean).join(fr ? " ou " : " or ");
+  const p = (t: string) => `<p>${t}</p>`;
+  const h = (t: string) => `<h2>${esc(t)}</h2>`;
+  const g = b.legal ?? {};
+  const out: Record<string, [string, string]> = fr
+    ? {
+        legal: [
+          l.legal,
+          h("Éditeur du site") +
+            p([esc(b.name), g.form && esc(g.form), b.address && esc(b.address.includes(b.town) ? b.address : `${b.address}, ${b.town}`), g.number && esc(g.number), contact].filter(Boolean).join("<br>")) +
+            (g.director ? p(`Directeur de la publication : ${esc(g.director)}`) : "") +
+            h("Hébergeur") +
+            p("Cloudflare, Inc.<br>101 Townsend St, San Francisco, CA 94107, États-Unis<br>+1 888 993 5273"),
+        ],
+        privacy: [
+          l.privacy,
+          (form
+            ? p(`Quand vous nous écrivez par le formulaire, nous recevons votre nom, votre e-mail, votre téléphone si vous le donnez et votre message. Ils servent uniquement à vous répondre, sont conservés chez notre hébergeur (Cloudflare) et peuvent nous être transmis par e-mail. Nous les supprimons quand ils ne sont plus utiles.`)
+            : p("Ce site ne vous demande aucune donnée personnelle.")) +
+            (x.analytics ? p("Nous comptons les visites avec Dozokit Analytics, sans cookie et sans conserver votre adresse IP.") : "") +
+            (embeds.length ? p(`Certains contenus viennent d’autres services (${esc(embeds.join(", "))}) : en les affichant, votre navigateur les contacte, et ils appliquent leurs propres règles.`) : "") +
+            p(`Vous pouvez demander à voir, corriger ou supprimer vos données${contact ? ` : ${contact}` : ""}. Vous pouvez aussi saisir la CNIL (cnil.fr).`),
+        ],
+        cookies: [
+          l.cookies,
+          p("Ce site ne dépose aucun cookie." + (x.analytics ? " Le comptage des visites n’en utilise pas non plus." : "")) +
+            (embeds.length ? p(`Les contenus intégrés (${esc(embeds.join(", "))}) peuvent déposer leurs propres cookies quand ils s’affichent.`) : ""),
+        ],
+      }
+    : {
+        legal: [
+          l.legal,
+          h("Published by") +
+            p([esc(b.name), g.form && esc(g.form), b.address && esc(b.address.includes(b.town) ? b.address : `${b.address}, ${b.town}`), g.number && esc(g.number), contact].filter(Boolean).join("<br>")) +
+            (g.director ? p(`Publication director: ${esc(g.director)}`) : "") +
+            h("Hosted by") +
+            p("Cloudflare, Inc.<br>101 Townsend St, San Francisco, CA 94107, USA<br>+1 888 993 5273"),
+        ],
+        privacy: [
+          l.privacy,
+          (form
+            ? p("When you write to us through the form, we receive your name, your email, your phone if you give it, and your message. We use them only to answer you; they are kept with our host (Cloudflare) and may be sent to us by email. We delete them once they're no longer needed.")
+            : p("This site doesn't ask you for any personal data.")) +
+            (x.analytics ? p("We count visits with Dozokit Analytics, without cookies and without keeping your IP address.") : "") +
+            (embeds.length ? p(`Some content comes from other services (${esc(embeds.join(", "))}): showing it makes your browser contact them, under their own rules.`) : "") +
+            p(`You can ask to see, correct or delete your data${contact ? `: ${contact}` : ""}.`),
+        ],
+        cookies: [
+          l.cookies,
+          p("This site sets no cookies." + (x.analytics ? " Counting visits doesn't use any either." : "")) +
+            (embeds.length ? p(`Embedded content (${esc(embeds.join(", "))}) may set its own cookies when it shows.`) : ""),
+        ],
+      };
+  const [title, body] = out[path];
+  return { title: `${title} | ${b.name}`, description: `${title}, ${b.name}.`, body: `<section class="s s--legal"><div class="wrap post"><h1>${esc(title)}</h1>${body}</div></section>` };
 }
 
 // The contact form works without this (a plain POST to /contact); with it, it stays on the page.
@@ -233,7 +388,11 @@ ${cleanCss(doc.theme.css) ?? ""}`;
 
 // What every page needs whatever its design: no overflow, readable forms, the hidden robot trap,
 // keyboard focus, the Call bar on phones. A chat's own design ("custom") starts from this only.
-const STRUCTURE = `*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--b)}h1,h2,h3{font-family:var(--h)}a{color:inherit;text-decoration-color:var(--accent)}img{max-width:100%;height:auto;display:block}
+const STRUCTURE = `.foot-links{display:flex;flex-wrap:wrap;gap:8px 22px;margin-top:32px;font-size:.92rem}.nav [aria-current]{text-decoration:underline;text-decoration-color:var(--accent)}
+.post{max-width:760px}.post-date{opacity:.75;font-size:.92rem}.post-img{width:100%;aspect-ratio:16/9;object-fit:cover;margin:8px 0 32px}.post-body h2{margin-top:1.4em}
+.posts{list-style:none;padding:0;margin:32px 0 0;display:grid;gap:40px;grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}.post-card h2{font-size:1.4rem;margin:16px 0 .2em}.post-card h2 a{text-decoration:none}
+@media (max-width:760px){.bar{flex-wrap:wrap}.nav.nav--pages{display:flex;order:3;width:100%;overflow-x:auto;gap:18px;padding-bottom:12px}}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--b)}h1,h2,h3{font-family:var(--h)}a{color:inherit;text-decoration-color:var(--accent)}img{max-width:100%;height:auto;display:block}
 .form{display:grid;gap:12px}.form label{display:grid;gap:4px}.form input,.form textarea{font:inherit}.form .hp{position:absolute;left:-9999px}
 @media (min-width:761px){.callbar{display:none!important}}.callbar{display:none}@media (max-width:760px){.callbar{display:flex;position:fixed;left:12px;right:12px;bottom:12px;z-index:20;justify-content:center;align-items:center;min-height:52px;border-radius:999px;background:var(--accent);color:var(--on-accent);font-weight:700;text-decoration:none}body{padding-bottom:76px}}
 :focus-visible{outline:3px solid var(--accent);outline-offset:3px}@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}`;
@@ -299,14 +458,26 @@ h2{font-weight:400}.s{border-top:1px solid var(--line)}.s > .wrap > h2{max-width
 };
 
 export function sitemap(doc: SiteDoc, origin: string, lastmod: string) {
+  const at = (l: string, path: string) => origin + langPath(doc, l) + path;
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${doc.langs
-    .map((l) => `<url><loc>${esc(origin + langPath(doc, l))}</loc><lastmod>${lastmod}</lastmod>${doc.langs.length > 1 ? doc.langs.map((o) => `<xhtml:link rel="alternate" hreflang="${esc(o)}" href="${esc(origin + langPath(doc, o))}"/>`).join("") : ""}</url>`)
+    .flatMap((l) =>
+      paths(doc, l).map((path) => {
+        const alts = doc.langs.filter((o) => exists(doc, o, path));
+        return `<url><loc>${esc(at(l, path))}</loc><lastmod>${lastmod}</lastmod>${alts.length > 1 ? alts.map((o) => `<xhtml:link rel="alternate" hreflang="${esc(o)}" href="${esc(at(o, path))}"/>`).join("") : ""}</url>`;
+      }),
+    )
     .join("\n")}\n</urlset>\n`;
 }
 
 export function llms(doc: SiteDoc, origin: string) {
   const b = doc.business;
-  return [`# ${b.name}`, "", `> ${doc.content[doc.langs[0]].description}`, "", `${b.trade} in ${b.town}.`, b.address && `Address: ${b.address}`, b.phone && `Phone: ${b.phone}`, b.hours?.length ? `Opening hours: ${b.hours.map((h) => `${h.days} ${h.open && h.close ? `${h.open}-${h.close}` : "closed"}`).join("; ")}` : "", "", ...doc.langs.map((l) => `- [${doc.content[l].title}](${origin + langPath(doc, l)})`)]
+  const c = (l: string) => doc.content[l];
+  const pages = doc.langs.flatMap((l) => [
+    `- [${c(l).title}](${origin + langPath(doc, l)})`,
+    ...(c(l).pages ?? []).map((p) => `- [${p.title}](${origin + langPath(doc, l) + p.slug})`),
+    ...(c(l).posts ?? []).map((p) => `- [${p.title}](${origin + langPath(doc, l)}blog/${p.slug}): ${p.description}`),
+  ]);
+  return [`# ${b.name}`, "", `> ${c(doc.langs[0]).description}`, "", `${b.trade} in ${b.town}.`, b.address && `Address: ${b.address}`, b.phone && `Phone: ${b.phone}`, b.hours?.length ? `Opening hours: ${b.hours.map((h) => `${h.days} ${h.open && h.close ? `${h.open}-${h.close}` : "closed"}`).join("; ")}` : "", "", ...pages]
     .filter((v, i, all) => v || (v === "" && all[i - 1]))
     .join("\n") + "\n";
 }

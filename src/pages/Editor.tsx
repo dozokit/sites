@@ -14,8 +14,9 @@ type Pick = { trail: string[]; i: number; path: string | null; kind: "text" | "i
 type After = SiteDetail & { builder?: State };
 
 // What Claude needs to find each picked element: where it is in the site, its words, its photos.
-function prompt(detail: SiteDetail, lang: string, picks: Pick[], ask: string) {
+function prompt(detail: SiteDetail, lang: string, page: string, picks: Pick[], ask: string) {
   const lines = [t("In my Dozokit site {id} ({name}), {lang} version:", { id: detail.id, name: detail.doc.business.name, lang: lang.toUpperCase() })];
+  if (page) lines.push(t("On the page /{page}:", { page }));
   for (const p of picks) {
     const where = [p.path ?? p.section, p.selector].filter(Boolean).join("; ");
     const text = p.kind === "image" ? "" : p.text.slice(0, 120);
@@ -30,6 +31,11 @@ export function Editor({ site: detail, builder, onSite }: { site: SiteDetail; bu
   const site = detail.doc;
   const at = `/api/sites/${detail.id}`;
   const [lang, setLang] = useState(site.langs[0]);
+  // Which page of the site is shown: "" for the home page, "services", "blog/opening-day"…
+  const [page, setPage] = useState("");
+  // The site as it is now, for the message handler set up once below.
+  const doc = useRef(site);
+  doc.current = site;
   const [picks, setPicks] = useState<Pick[]>([]);
   const [current, setCurrent] = useState(-1);
   const [draftText, setDraftText] = useState("");
@@ -58,7 +64,9 @@ export function Editor({ site: detail, builder, onSite }: { site: SiteDetail; bu
       if (e.origin !== location.origin || e.source !== iframe.current?.contentWindow) return;
       if (e.data?.type === "stop") return setPicking(false);
       if (e.data?.type === "edit") {
-        const it = e.data.item as Pick;
+        // The text as written, not as drawn: a post's Markdown and its line breaks stay.
+        const raw = e.data.item.path?.split(".").reduce((o: unknown, k: string) => (o as Record<string, unknown> | undefined)?.[k], doc.current);
+        const it = { ...e.data.item, ...(e.data.item.kind === "text" && typeof raw === "string" && { text: raw }) } as Pick;
         setEditing((was) => {
           if (was?.path !== it.path) setDraftText(it.kind === "text" ? it.text : "");
           return it;
@@ -144,12 +152,34 @@ export function Editor({ site: detail, builder, onSite }: { site: SiteDetail; bu
         {site.langs.length > 1 && (
           <div className="seg" role="group" aria-label={t("Language shown")}>
             {site.langs.map((l) => (
-              <button key={l} type="button" aria-pressed={l === lang} onClick={() => (setLang(l), setPicks([]), setCurrent(-1))}>
+              <button key={l} type="button" aria-pressed={l === lang} onClick={() => (setLang(l), setPage(""), setPicks([]), setCurrent(-1))}>
                 {l.toUpperCase()}
               </button>
             ))}
           </div>
         )}
+        {(() => {
+          const c = site.content[lang];
+          // The legal pages are written from Site details: shown here to check them, not to edit.
+          const choices: [string, string][] = [
+            ["", t("Home page")],
+            ...(c.pages ?? []).map((p): [string, string] => [p.slug, p.menu]),
+            ...(c.posts?.length ? [["blog", t("Blog")] as [string, string], ...c.posts.map((p): [string, string] => [`blog/${p.slug}`, `· ${p.title}`])] : []),
+            ["legal", t("Legal notice")],
+            ["privacy", t("Privacy")],
+            ["cookies", t("Cookies")],
+          ];
+          return (
+            <label className="page-pick">
+              <span className="visually-hidden">{t("Page shown")}</span>
+              <select value={page} onChange={(e) => (setPage(e.target.value), setPicks([]), setCurrent(-1), setEditing(null))}>
+                {choices.map(([v, name]) => (
+                  <option key={v} value={v}>{name}</option>
+                ))}
+              </select>
+            </label>
+          );
+        })()}
         <button className="btn btn--quiet" type="button" onClick={undo} disabled={Boolean(busy)}>
           {t("Undo")}
         </button>
@@ -171,7 +201,7 @@ export function Editor({ site: detail, builder, onSite }: { site: SiteDetail; bu
       </div>
 
       <div className="editor-main">
-        <iframe ref={iframe} key={`${lang}-${frame}`} onLoad={() => tell({ type: "mode", on: picking })} className="preview" title={t("Your site, click anything to change it")} src={`/admin/preview?site=${detail.id}&lang=${lang}`} />
+        <iframe ref={iframe} key={`${lang}-${page}-${frame}`} onLoad={() => tell({ type: "mode", on: picking })} className="preview" title={t("Your site, click anything to change it")} src={`/admin/preview?site=${detail.id}&lang=${lang}&page=${encodeURIComponent(page)}`} />
 
         {details ? (
           <Details site={detail} save={saveText} onClose={() => setDetails(false)} message={error ? { ok: false, text: error } : saved ? { ok: true, text: saved } : null} />
@@ -211,12 +241,17 @@ export function Editor({ site: detail, builder, onSite }: { site: SiteDetail; bu
             <span>{t("What should change?")}</span>
             <textarea rows={3} value={ask} onChange={(e) => setAsk(e.target.value)} placeholder={t("Make the mosaic one row on phones")} />
           </label>
-          <PromptBox text={prompt(detail, lang, picks, ask)} />
+          <PromptBox text={prompt(detail, lang, page, picks, ask)} />
           {!recent(builder).length && (
             <details className="qa notice">
               <summary>{t("Claude isn't connected to Dozokit Sites yet")}</summary>
               <ConnectSteps />
             </details>
+          )}
+          {detail.published && !detail.domain && (
+            <p className="muted">
+              {t("Your site is on its Dozokit Sites address.")} <a href={`#site/${detail.id}/address`}>{t("Use your own domain")}</a>
+            </p>
           )}
           <p className={error ? "help help--error" : "help"} role="alert">
             {error ?? saved ?? ""}
@@ -341,6 +376,7 @@ export function Editor({ site: detail, builder, onSite }: { site: SiteDetail; bu
               {t("{n} suggestions to help Google find you", { n: publishing.checks.filter((c) => !c.ok).length })}
             </button>
           )}{" "}
+          {!detail.domain && <a href={`#site/${detail.id}/address`}>{t("Use your own domain")}</a>}{" "}
           <button type="button" className="link-btn" onClick={() => setPublishing(null)}>
             {t("Close")}
           </button>
@@ -362,6 +398,15 @@ export function Editor({ site: detail, builder, onSite }: { site: SiteDetail; bu
                 <button className="btn btn--ink" type="button" onClick={() => publish(true)} disabled={Boolean(busy)}>
                   {t("Publish now")}
                 </button>
+              </div>
+            )}
+            {publishing.url && !detail.domain && (
+              <div className="notice">
+                <h3 className="suggest-h">{t("Use your own domain")}</h3>
+                <p className="help">{t("An address like martin-plomberie.fr looks more serious than this one and stays yours. The Address tab walks you through it, whether you need to buy one or already have one.")}</p>
+                <a className="btn btn--ink" href={`#site/${detail.id}/address`}>
+                  {t("Use your own domain")}
+                </a>
               </div>
             )}
             {publishing.checks.some((c) => !c.ok) && (

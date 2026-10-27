@@ -90,6 +90,13 @@ input::placeholder { color: color-mix(in oklab, var(--color-muted) 75%, transpar
 .nav-link:hover { color: var(--color-ink); background: var(--color-paper-2); }
 .nav-link[aria-current="page"] { color: var(--color-ink); background: var(--color-paper-2); box-shadow: inset 0 -2px 0 var(--color-accent-2); }
 .topbar-end { margin-left: auto; display: flex; align-items: center; gap: var(--space-sm); }
+.menu { position: relative; }
+.menu summary { list-style: none; cursor: pointer; }
+.menu summary::-webkit-details-marker { display: none; }
+.menu-list { position: absolute; right: 0; top: calc(100% + var(--space-2xs)); z-index: var(--z-dropdown); min-width: 12rem; display: grid; padding: var(--space-2xs); background: var(--color-paper); border: 1px solid var(--color-rule); border-radius: var(--radius-card); box-shadow: 0 8px 24px oklch(20% 0.01 35 / 0.12); }
+.menu-list a, .menu-list button { display: block; width: 100%; padding: var(--space-xs) var(--space-sm); border: 0; border-radius: var(--radius-input); background: none; color: var(--color-ink); font: inherit; font-size: var(--text-sm); text-align: left; text-decoration: none; cursor: pointer; }
+.menu-list a:hover, .menu-list button:hover { background: var(--color-paper-2); }
+.menu-list button { border-top: 1px solid var(--color-rule); border-radius: 0 0 var(--radius-input) var(--radius-input); }
 .online { font-size: var(--text-sm); color: var(--color-ink-2); text-decoration: none; white-space: nowrap; }
 .online .fig { color: var(--color-accent-2); font-weight: 500; }
 .online:hover { text-decoration: underline; text-decoration-color: var(--color-accent-2); }
@@ -447,3 +454,18 @@ button.row:hover .row-key { text-decoration: underline; text-decoration-color: v
 .map-avatar .avatar { display: block; }
 .map-popup .maplibregl-popup-content { padding: var(--space-2xs) var(--space-xs); border-radius: var(--radius-input); background: var(--color-board); color: var(--color-board-type); font-family: var(--font-body); font-size: var(--text-xs); box-shadow: var(--cast-stock); }
 .map-popup .maplibregl-popup-tip { display: none; }
+
+/* Adding photos: the drop zone, and a code to send them from a phone */
+.add-photos { display: grid; grid-template-columns: 2fr 1fr; gap: var(--space-md); align-items: start; }
+.add-photos .dropzone { margin: 0; }
+.phone { padding: var(--space-md); border: 1px solid var(--color-rule); border-radius: var(--radius-card); }
+.phone h3 { margin: 0 0 var(--space-xs); font-size: var(--text-base); }
+.phone-qr svg { display: block; width: 180px; height: 180px; background: #fff; }
+@media (max-width: 48rem) { .add-photos { grid-template-columns: 1fr; } }
+
+/* Usage against the free plan */
+.usage { border-collapse: collapse; margin-bottom: var(--space-sm); font-size: var(--text-sm); }
+.usage th { text-align: left; font-weight: 500; padding: var(--space-2xs) var(--space-md) var(--space-2xs) 0; }
+.usage td { padding: var(--space-2xs) var(--space-sm) var(--space-2xs) 0; font-variant-numeric: tabular-nums; }
+.usage td:nth-child(2) { text-align: right; }
+.usage meter { width: 8rem; }
