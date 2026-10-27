@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "node -e \"const f=require('fs'),a='.github/workflows/update.yml';if(f.existsSync(a)&&f.readFileSync(a,'utf8')!==f.readFileSync('src/pages/update-workflow.yml','utf8')){console.error('src/pages/update-workflow.yml must match '+a);process.exit(1)}\" && tsc -b && vite build",
     "typecheck": "tsc -b",
     "db:migrate": "wrangler d1 migrations apply DB --local",
     "deploy": "vite build && wrangler d1 migrations apply DB --remote && wrangler deploy"

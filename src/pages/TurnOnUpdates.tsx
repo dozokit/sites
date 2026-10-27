@@ -1,8 +1,9 @@
 import { useState } from "react";
-import workflow from "../../.github/workflows/update.yml?raw";
+import workflow from "./update-workflow.yml?raw";
 import { t } from "../lib/i18n";
 
-// Cloudflare's Deploy button copies the repository without its .github folder, so a new copy
+// Cloudflare's Deploy button copies the repository without its .github folder (so the workflow
+// text lives in update-workflow.yml, kept identical by the build), and a new copy
 // has no update workflow. This opens GitHub's "new file" page with the workflow filled in. A copy
 // with an older workflow gets GitHub's edit page instead, with the new one on the clipboard.
 export function TurnOnUpdates() {
