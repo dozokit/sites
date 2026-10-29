@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.11 – 2026-10-29
+
+- Fixed: on Cloudflare's free plan, signing in failed after the password was changed in Settings (checking it took more computing time than the free plan allows per visit). A password changed from now on is checked within the limit. One changed before this version still needs the paid plan once: if signing in fails, edit the PASSWORD secret in your Cloudflare dashboard to sign in with that instead.
+
 ## 0.1.10 – 2026-10-27
 
 - Fixed: Settings → Usage said a token made with its link "doesn't reach any Cloudflare account". The link now also asks for Account Settings (read), so the builder finds your account by itself. With a token made before, paste your account ID in the new field: it's the long code after dash.cloudflare.com/ in your dashboard's address.
