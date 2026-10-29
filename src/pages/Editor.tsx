@@ -50,7 +50,7 @@ export function Editor({ site: detail, builder, onSite }: { site: SiteDetail; bu
   const [frame, setFrame] = useState(0);
   const [publishing, setPublishing] = useState<null | { checks: { ok: boolean; label: string; fix?: string }[]; url?: string; open: boolean }>(null);
   const [styling, setStyling] = useState<Style | null>(null);
-  const [choosing, setChoosing] = useState<string | null>(null);
+  const [choosing, setChoosing] = useState<Pick | null>(null);
   const iframe = useRef<HTMLIFrameElement>(null);
   const picked = picks[current] ?? null;
   const tell = (m: object) => iframe.current?.contentWindow?.postMessage(m, location.origin);
@@ -282,7 +282,7 @@ export function Editor({ site: detail, builder, onSite }: { site: SiteDetail; bu
           )}
           {editing.kind === "image" && (
             <div className="pop-actions">
-              <button className="btn btn--ink" type="button" onClick={() => (setChoosing(editing.path), unedit())}>
+              <button className="btn btn--ink" type="button" onClick={() => (setChoosing(editing), unedit())}>
                 {t("Choose from your photos")}
               </button>
               <label className="btn btn--quiet">
@@ -328,9 +328,10 @@ export function Editor({ site: detail, builder, onSite }: { site: SiteDetail; bu
       {choosing && (
         <PhotoPicker
           siteId={detail.id}
+          current={choosing.photos[0]}
           onClose={() => setChoosing(null)}
           onPick={(id) => {
-            const path = choosing;
+            const path = choosing.path!;
             setChoosing(null);
             saveText(path, id, t("Photo changed by you"));
           }}

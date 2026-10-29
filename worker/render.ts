@@ -104,10 +104,14 @@ function section(s: Section, lang: string, doc: SiteDoc, c: Content, x: Extras, 
         : "";
       return `${open}${head("h2")}${text("p", s.text, `${base}.text`, x)}<div class="contact">${form}${info}</div>${close}`;
     }
-    case "custom":
+    case "custom": {
+      // In the preview, each photo in the chat's block is changed for free too: "<block>.html@<n>".
+      let n = 0;
+      const html = x.edit ? s.html.replace(/<img\b/g, () => `<img data-edit="${esc(base)}.html@${n++}" data-kind="image"`) : s.html;
       // bare: the chat's own block, with no wrapper or heading from the builder.
-      if ((s as { bare?: boolean }).bare) return `<section id="${esc(s.id)}" class="s s--custom s--bare"${x.edit ? ` data-section="${esc(base)}" data-edit="${esc(base)}.html" data-kind="html"` : ""}>${s.html}</section>`;
-      return `${open}${head("h2")}<div class="custom"${x.edit ? ` data-edit="${esc(base)}.html" data-kind="html"` : ""}>${s.html}</div>${close}`;
+      if ((s as { bare?: boolean }).bare) return `<section id="${esc(s.id)}" class="s s--custom s--bare"${x.edit ? ` data-section="${esc(base)}" data-edit="${esc(base)}.html" data-kind="html"` : ""}>${html}</section>`;
+      return `${open}${head("h2")}<div class="custom"${x.edit ? ` data-edit="${esc(base)}.html" data-kind="html"` : ""}>${html}</div>${close}`;
+    }
   }
 }
 

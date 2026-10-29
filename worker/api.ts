@@ -14,7 +14,7 @@ const json = (data: unknown, status = 200) => Response.json(data, { status });
 const body = async (req: Request) => (await req.json().catch(() => ({}))) as Record<string, unknown>;
 
 // This copy's release. Raise it with each tag on github.com/dozokit/sites and its CHANGELOG.md entry.
-const VERSION = "0.1.11";
+const VERSION = "0.1.12";
 
 // Where a site can be visited: its domain, else the builder's address (the first site at the
 // root, the others under /<slug>/).
@@ -64,7 +64,9 @@ async function text(req: Request, env: Env, id: number) {
   if (!d || typeof b.path !== "string") return json({ error: "Nothing to change." }, 400);
   // A text that exists, a photo slot (which may be empty), or one of the business's own details.
   const own = ["business.google_url", "business.phone", "business.email", "business.logo", "business.favicon", "business.legal.form", "business.legal.number", "business.legal.director"].includes(b.path);
-  const ok = typeof get(d.doc, b.path) === "string" || /\.image$/.test(b.path) || own;
+  // "<block>.html@<n>": the n-th photo in a block the chat wrote.
+  const inHtml = /^(.+\.html)@(\d+)$/.exec(b.path);
+  const ok = typeof get(d.doc, inHtml?.[1] ?? b.path) === "string" || /\.image$/.test(b.path) || own;
   if (!ok) return json({ error: "Only a text or a photo can be changed this way." }, 400);
   const value = String(b.value ?? "").slice(0, 5000);
   if (/\.title$/.test(b.path) && !value.trim()) return json({ error: "A title can't be empty. To remove the whole section, ask Claude." }, 400);
@@ -73,7 +75,11 @@ async function text(req: Request, env: Env, id: number) {
   const doc = structuredClone(d.doc) as SiteDoc;
   if (b.path.startsWith("business.legal.")) doc.business.legal ??= {};
   const before = String(get(doc, b.path) ?? "");
-  set(doc, b.path, value.trim());
+  if (inHtml) {
+    let n = Number(inHtml[2]);
+    const src = ` src="/img/${encodeURIComponent(value.trim())}"`;
+    set(doc, inHtml[1], String(get(doc, inHtml[1])).replace(/<img\b[^>]*>/g, (tag) => (n-- ? tag : tag.replace(/\ssrc=("[^"]*"|'[^']*'|[^\s>]+)/, src))));
+  } else set(doc, b.path, value.trim());
   // A new phone or email replaces the old one everywhere, blocks Claude wrote included (tel: and
   // mailto: links too, with or without the spaces).
   if ((b.path === "business.phone" || b.path === "business.email") && before.trim() && value.trim()) {

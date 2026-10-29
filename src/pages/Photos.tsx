@@ -154,7 +154,7 @@ export function Photos({ siteId }: { siteId: number }) {
 }
 
 // The editor's chooser: pick from the library, or upload one and use it at once.
-export function PhotoPicker({ siteId, onPick, onClose }: { siteId: number; onPick: (id: string) => void; onClose: () => void }) {
+export function PhotoPicker({ siteId, current, onPick, onClose }: { siteId: number; current?: string; onPick: (id: string) => void; onClose: () => void }) {
   const [list, setList] = useState<Photo[] | null>(null);
   useEffect(() => {
     listPhotos(siteId).then(setList, () => setList([]));
@@ -165,9 +165,10 @@ export function PhotoPicker({ siteId, onPick, onClose }: { siteId: number; onPic
         <h2 id="pick-h">{t("Choose a photo")}</h2>
         <Uploader siteId={siteId} onDone={(_p, id) => onPick(id)} />
         <ul className="library library--pick">
-          {list?.map((p) => (
+          {/* The photo on the page now comes first, outlined in green. */}
+          {list?.toSorted((a, b) => Number(b.id === current) - Number(a.id === current)).map((p) => (
             <li key={p.id}>
-              <button type="button" className="lib-photo" onClick={() => onPick(p.id)} aria-label={p.alt || t("Photo")}>
+              <button type="button" className={`lib-photo${p.id === current ? " is-current" : ""}`} aria-current={p.id === current || undefined} onClick={() => onPick(p.id)} aria-label={p.alt || t("Photo")}>
                 <img src={`/img/${p.id}`} alt="" loading="lazy" />
               </button>
             </li>

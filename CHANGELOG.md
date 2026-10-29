@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.12 – 2026-10-29
+
+- Fixed: photos inside a block Claude wrote itself (a grid of photos next to a text, for example) couldn't be changed in the editor: clicking them did nothing. They now get the green outline like any other photo, and you can choose another one from your photos or upload one. Only that photo changes, and Undo puts it back.
+- In "Choose a photo", the photo that's on the page now comes first, framed in green.
+
 ## 0.1.11 – 2026-10-29
 
 - Fixed: on Cloudflare's free plan, signing in failed after the password was changed in Settings (checking it took more computing time than the free plan allows per visit). A password changed from now on is checked within the limit. One changed before this version still needs the paid plan once: if signing in fails, edit the PASSWORD secret in your Cloudflare dashboard to sign in with that instead.

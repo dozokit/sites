@@ -139,6 +139,7 @@ textarea { resize: vertical; }
 .lib-photo { display: grid; gap: 4px; width: 100%; padding: 0; border: 0; background: none; cursor: pointer; text-align: left; font: inherit; }
 .lib-photo img { aspect-ratio: 1; object-fit: cover; width: 100%; border-radius: 6px; }
 .lib-photo:hover img, .lib-photo.is-on img { box-shadow: 0 0 0 3px var(--color-ink); }
+.lib-photo.is-current img { outline: 4px solid #1f8a4c; outline-offset: -4px; }
 .lib-meta { font-size: var(--text-xs); color: var(--color-muted); }
 .lib-big { width: 100%; max-height: 50dvh; object-fit: contain; border-radius: 6px; margin-bottom: var(--space-md); background: var(--color-paper-2); }
 
