@@ -469,3 +469,7 @@ button.row:hover .row-key { text-decoration: underline; text-decoration-color: v
 .usage td { padding: var(--space-2xs) var(--space-sm) var(--space-2xs) 0; font-variant-numeric: tabular-nums; }
 .usage td:nth-child(2) { text-align: right; }
 .usage meter { width: 8rem; }
+
+.share-count { margin-top: var(--space-md); }
+.share-count label { display: flex; align-items: center; gap: 0.5rem; font-weight: 600; }
+.share-count input { width: 1.1rem; height: 1.1rem; accent-color: var(--color-ink); }

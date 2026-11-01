@@ -38,6 +38,7 @@ A few things you may want later:
 - Every change is a version: undo, history and restore in the editor.
 - Claude can see what it makes: after each change it gets screenshots of the page on a desktop and a phone (Cloudflare's Browser Rendering, 10 minutes a day on the free plan) with warnings for unreadable text and other common faults.
 - Photos live in Workers KV; texts, versions, messages and settings in D1.
+- Once a day the builder asks dozokit.com for the latest release, to tell you when a newer version exists; it sends its version number and a random id made for this copy, nothing else (Settings → Account → Updates turns this off).
 
 ## Run it locally
 

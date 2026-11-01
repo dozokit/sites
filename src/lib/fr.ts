@@ -370,4 +370,7 @@ export const FR: Record<string, string> = {
   "Account ID (only if asked)": "Identifiant du compte (seulement si demandé)",
   "That token can't see which Cloudflare account it's for. Paste your account ID below too: it's the long code after dash.cloudflare.com/ in your dashboard's address.": "Ce jeton ne voit pas à quel compte Cloudflare il appartient. Collez aussi l’identifiant de votre compte ci-dessous : c’est le long code après dash.cloudflare.com/ dans l’adresse de votre tableau de bord.",
   "The account ID is 32 letters and digits, like 023e105f4ecef8ad9ca31a8372d0c353.": "L’identifiant du compte fait 32 lettres et chiffres, comme 023e105f4ecef8ad9ca31a8372d0c353.",
+  "Check for new versions": "Vérifier les nouvelles versions",
+  "Send feedback on Dozokit Sites ↗": "Donner votre avis sur Dozokit Sites ↗",
+  "Once a day, the builder asks Dozokit whether a new version is out. It sends only its version number and a random number made for this copy, nothing about your sites or their visitors. Turned off, nothing is sent and you won't hear about new versions.": "Une fois par jour, l’éditeur demande à Dozokit si une nouvelle version est sortie. Il n’envoie que son numéro de version et un nombre au hasard créé pour cette copie, rien sur vos sites ni leurs visiteurs. Désactivé, rien n’est envoyé et vous ne serez plus prévenu des nouvelles versions.",
 };

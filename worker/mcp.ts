@@ -71,7 +71,7 @@ const TOOLS: Tool[] = [
       // The photos come back as a picture too, numbered as in the list: chat apps rarely open them on their own.
       const ids = [...f.photos, ...(f.logo ? [f.logo] : [])].slice(0, 13);
       if (!ids.length) return found;
-      const shot = await shoot(env, "", { width: 1200, height: Math.ceil(ids.length / 4) * 250 + 24, html: sheet(origin, ids) }).catch((e) => (console.log(`[mcp] photo sheet failed: ${String(e).slice(0, 200)}`), null));
+      const shot = (await shoot(env, { url: "", width: 1200, height: Math.ceil(ids.length / 4) * 250 + 24, html: sheet(origin, ids) }).catch((e) => (console.log(`[mcp] photo sheet failed: ${String(e).slice(0, 200)}`), null)))?.[0];
       return shot ? new Seen([shot.image], { ...found, photo_sheet: "The picture shows every photo, numbered as in photos (the last one is the logo when there is one). Look at it before choosing photos." }) : found;
     },
   },
@@ -128,7 +128,7 @@ const TOOLS: Tool[] = [
       const ids = (Array.isArray(a.ids) ? a.ids : []).map(String).filter((id) => /^[\w-]{6,40}\.\w+$/.test(id)).slice(0, 12);
       if (!ids.length) throw new AiError("Pass the photo ids, as read_website returned them.");
       const rows = Math.ceil(ids.length / 4);
-      return new Seen([(await shoot(env, "", { width: 1200, height: rows * 250 + 24, html: sheet(origin, ids) })).image], { photos: ids.map((id, i) => `${i + 1}. ${id}`) });
+      return new Seen([(await shoot(env, { url: "", width: 1200, height: rows * 250 + 24, html: sheet(origin, ids) }))[0].image], { photos: ids.map((id, i) => `${i + 1}. ${id}`) });
     },
   },
   {
@@ -143,7 +143,7 @@ const TOOLS: Tool[] = [
       const { id, doc } = await own(env, a.site_id);
       const lang = doc.langs.includes(String(a.lang)) ? String(a.lang) : doc.langs[0];
       const phone = a.device === "phone";
-      const shot = await look(env, origin, id, doc, { phone, whole: a.whole_page === true, lang, page: typeof a.page === "string" ? a.page : "" });
+      const [shot] = await look(env, origin, id, doc, [{ phone, whole: a.whole_page === true, lang, page: typeof a.page === "string" ? a.page : "" }]);
       return new Seen([shot.image], { site_id: id, device: phone ? "phone" : "desktop", whole_page: a.whole_page === true, warnings: shot.warnings, review_yourself: REVIEW, editor: editor(origin, id) });
     },
   },
@@ -239,14 +239,22 @@ const changed = (asked: unknown, got: Record<string, string>) => {
   return notes.length ? { colours_changed: notes } : {};
 };
 
-// A screenshot of the draft, with the warnings measured in the browser: the contrast of every
+// Screenshots of the draft, from one browser, with the warnings measured in it: the contrast of every
 // text, overlapping headline lines and, on a desktop, whether the hero's action shows without scrolling.
-async function look(env: Env, origin: string, id: number, doc: SiteDoc, o: { phone: boolean; whole: boolean; lang?: string; page?: string }) {
-  const url = `${origin}/admin/preview?site=${id}&lang=${o.lang ?? doc.langs[0]}&page=${encodeURIComponent(o.page ?? "")}&pass=${await previewPass(env)}`;
-  const visible = o.phone ? "null" : `(() => { const b = document.querySelector("header.hero a.btn, header.hero .btn, .s--bare a"); return b ? b.getBoundingClientRect().bottom <= innerHeight : null })()`;
-  const shot = await shoot(env, url, { width: o.phone ? 390 : 1280, height: o.phone ? 844 : 800, full: o.whole, probe: `({ actionVisible: ${visible}, lowContrast: ${CONTRAST_PROBE}, tightHeadline: ${OVERLAP_PROBE} })` });
-  const p = (shot.answer ?? {}) as { actionVisible?: boolean | null; lowContrast?: Low[]; tightHeadline?: number | null };
-  return { image: shot.image, warnings: warnings(doc, { actionVisible: p.actionVisible ?? undefined, lowContrast: p.lowContrast, tightHeadline: p.tightHeadline ?? undefined }) };
+async function look(env: Env, origin: string, id: number, doc: SiteDoc, views: { phone: boolean; whole: boolean; lang?: string; page?: string }[]) {
+  const pass = await previewPass(env);
+  const shots = await shoot(
+    env,
+    ...views.map((o) => {
+      const url = `${origin}/admin/preview?site=${id}&lang=${o.lang ?? doc.langs[0]}&page=${encodeURIComponent(o.page ?? "")}&pass=${pass}`;
+      const visible = o.phone ? "null" : `(() => { const b = document.querySelector("header.hero a.btn, header.hero .btn, .s--bare a"); return b ? b.getBoundingClientRect().bottom <= innerHeight : null })()`;
+      return { url, width: o.phone ? 390 : 1280, height: o.phone ? 844 : 800, full: o.whole, probe: `({ actionVisible: ${visible}, lowContrast: ${CONTRAST_PROBE}, tightHeadline: ${OVERLAP_PROBE} })` };
+    }),
+  );
+  return shots.map((shot) => {
+    const p = (shot.answer ?? {}) as { actionVisible?: boolean | null; lowContrast?: Low[]; tightHeadline?: number | null };
+    return { image: shot.image, warnings: warnings(doc, { actionVisible: p.actionVisible ?? undefined, lowContrast: p.lowContrast, tightHeadline: p.tightHeadline ?? undefined }) };
+  });
 }
 
 // After every change the chat app gets the page back as pictures (the whole page on a desktop,
@@ -254,7 +262,7 @@ async function look(env: Env, origin: string, id: number, doc: SiteDoc, o: { pho
 async function shown(env: Env, origin: string, id: number, answer: object, page = "") {
   const doc = (await draft(env, id))!.doc;
   try {
-    const [desk, phone] = await Promise.all([look(env, origin, id, doc, { phone: false, whole: true, page }), look(env, origin, id, doc, { phone: true, whole: false, page })]);
+    const [desk, phone] = await look(env, origin, id, doc, [{ phone: false, whole: true, page }, { phone: true, whole: false, page }]);
     return new Seen([desk.image, phone.image], { ...answer, screenshots: `The first picture is the whole ${page ? `/${page} page` : "home page"} on a desktop, the second its first screen on a phone.`, warnings: [...new Set([...desk.warnings, ...phone.warnings])], review_yourself: REVIEW, next: LOOKED });
   } catch {
     return { ...answer, next: LOOK };

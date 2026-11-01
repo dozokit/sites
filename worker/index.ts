@@ -1,6 +1,6 @@
 import { api } from "./api";
 import { mcp } from "./mcp";
-import { passOk } from "./shot";
+import { passOk, type Browser } from "./shot";
 import { phonePage, phoneSite, upload } from "./photos";
 import { authorize, bearer, metadata, register, token, unauthorized } from "./oauth";
 import { changePassword, login, logout, passwordRequired, setupNeeded, signedIn } from "./auth";
@@ -13,6 +13,7 @@ export interface Env {
   DB: D1Database;
   IMAGES: KVNamespace;
   BROWSER?: Fetcher;
+  SHOTS: DurableObjectNamespace<Browser>;
   ASSETS: Fetcher;
   PASSWORD?: string;
   LOGIN_LIMIT?: RateLimit;
@@ -117,6 +118,8 @@ function route(doc: SiteDoc, path: string) {
   const lang = parts[0] && parts[0] !== doc.langs[0] && doc.langs.includes(parts[0]) ? parts.shift()! : doc.langs[0];
   return { lang, at: parts.join("/") };
 }
+
+export { Browser } from "./shot";
 
 export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {

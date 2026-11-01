@@ -1,4 +1,5 @@
 import puppeteer from "@cloudflare/puppeteer";
+import { DurableObject } from "cloudflare:workers";
 import type { Env } from "./index";
 
 // Screenshots for chat apps, which can't open pages themselves: the page they're designing, and a
@@ -17,28 +18,64 @@ const counted = (env: Env, start: number) =>
     .run()
     .catch(() => {});
 
-export async function shoot(env: Env, url: string, opts: { width: number; height: number; full?: boolean; html?: string; probe?: string }) {
-  if (!env.BROWSER) throw new Error("This builder has no browser binding, so it can't take screenshots.");
-  const browser = await puppeteer.launch(env.BROWSER);
-  const start = Date.now();
-  try {
-    const page = await browser.newPage();
-    await page.setViewport({ width: opts.width, height: opts.height, deviceScaleFactor: 1 });
-    if (opts.html) await page.setContent(opts.html, { waitUntil: "networkidle0", timeout: 20_000 });
-    else await page.goto(url, { waitUntil: "networkidle0", timeout: 20_000 });
-    // Photos further down load only when a visitor scrolls near them: load them all now, or a
-    // whole-page shot shows empty boxes where they go.
-    if (opts.full) await page.evaluate(`Promise.all([...document.images].map((i) => (i.loading = "eager", i.complete ? 0 : new Promise((r) => (i.onload = i.onerror = r, setTimeout(r, 5000))))))`);
-    // A full page is cut at 7,000 px tall: enough for a one-page site, small enough to send.
-    const clip = opts.full ? { x: 0, y: 0, width: opts.width, height: Math.min(7000, await page.evaluate("document.documentElement.scrollHeight") as number) } : undefined;
-    // An optional question about the page, asked before the screenshot (e.g. is the hero's action on screen).
-    const answer = opts.probe ? await page.evaluate(opts.probe) : undefined;
-    const shot = (await page.screenshot({ type: "jpeg", quality: 62, ...(clip ? { clip } : {}) })) as Uint8Array;
-    return { image: b64(shot), answer };
-  } finally {
-    await browser.close();
-    await counted(env, start);
+type Shot = { url: string; width: number; height: number; full?: boolean; html?: string; probe?: string };
+
+// Driving the browser takes 46 to 585 ms of CPU, and a Worker request on the free plan gets 10 ms:
+// the browser runs in a Durable Object, which gets 30 s, and the request only waits for it.
+export class Browser extends DurableObject<Env> {
+  // Every picture of one call from one browser: the free plan opens one new browser every 20 s.
+  async shoot(shots: Shot[]) {
+    const browser = await puppeteer.launch(this.env.BROWSER!);
+    const start = Date.now();
+    try {
+      const out = [];
+      for (const o of shots) {
+        const page = await browser.newPage();
+        await page.setViewport({ width: o.width, height: o.height, deviceScaleFactor: 1 });
+        if (o.html) await page.setContent(o.html, { waitUntil: "networkidle0", timeout: 20_000 });
+        else await page.goto(o.url, { waitUntil: "networkidle0", timeout: 20_000 });
+        // Photos further down load only when a visitor scrolls near them: load them all now, or a
+        // whole-page shot shows empty boxes where they go.
+        if (o.full) await page.evaluate(`Promise.all([...document.images].map((i) => (i.loading = "eager", i.complete ? 0 : new Promise((r) => (i.onload = i.onerror = r, setTimeout(r, 5000))))))`);
+        // A full page is cut at 7,000 px tall: enough for a one-page site, small enough to send.
+        const clip = o.full ? { x: 0, y: 0, width: o.width, height: Math.min(7000, await page.evaluate("document.documentElement.scrollHeight") as number) } : undefined;
+        // An optional question about the page, asked before the screenshot (e.g. is the hero's action on screen).
+        const answer = o.probe ? await page.evaluate(o.probe) : undefined;
+        const shot = (await page.screenshot({ type: "jpeg", quality: 62, ...(clip ? { clip } : {}) })) as Uint8Array;
+        out.push({ image: b64(shot), answer });
+        await page.close();
+      }
+      return out;
+    } finally {
+      await browser.close();
+      await counted(this.env, start);
+    }
   }
+
+  async brand(url: string) {
+    const browser = await puppeteer.launch(this.env.BROWSER!).catch(() => null);
+    if (!browser) return null;
+    const start = Date.now();
+    try {
+      const page = await browser.newPage();
+      await page.setViewport({ width: 1280, height: 800 });
+      await page.goto(url, { waitUntil: "networkidle2", timeout: 20_000 });
+      return (await page.evaluate(BRAND_PROBE)) as { colors: [string, number][]; logo: string | null };
+    } catch {
+      return null;
+    } finally {
+      await browser.close();
+      await counted(this.env, start);
+    }
+  }
+}
+
+const browser = (env: Env) => env.SHOTS.get(env.SHOTS.idFromName("browser"));
+
+export async function shoot(env: Env, ...shots: Shot[]) {
+  if (!env.BROWSER) throw new Error("This builder has no browser binding, so it can't take screenshots.");
+  // RPC types can't carry an unknown answer: it comes back as the probe returned it.
+  return (await browser(env).shoot(shots)) as { image: string; answer: unknown }[];
 }
 
 // A one-off pass that lets the browser open a draft preview without the owner's cookie.
@@ -119,18 +156,5 @@ const BRAND_PROBE = `(async () => {
 
 export async function brandSeen(env: Env, url: string): Promise<{ colors: [string, number][]; logo: string | null } | null> {
   if (!env.BROWSER) return null;
-  const browser = await puppeteer.launch(env.BROWSER).catch(() => null);
-  if (!browser) return null;
-  const start = Date.now();
-  try {
-    const page = await browser.newPage();
-    await page.setViewport({ width: 1280, height: 800 });
-    await page.goto(url, { waitUntil: "networkidle2", timeout: 20_000 });
-    return (await page.evaluate(BRAND_PROBE)) as { colors: [string, number][]; logo: string | null };
-  } catch {
-    return null;
-  } finally {
-    await browser.close();
-    await counted(env, start);
-  }
+  return ((await browser(env).brand(url).catch(() => null)) ?? null) as { colors: [string, number][]; logo: string | null } | null;
 }

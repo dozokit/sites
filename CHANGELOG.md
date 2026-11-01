@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0 – 2026-11-01
+
+- Works on Cloudflare's free plan when Claude or ChatGPT looks at your page: the screenshots after each change, preview_site, view_photos and read_website used to need more computing time per visit than the free plan allows, so they failed there. The browser now runs on its own, with the desktop and phone pictures taken in one go. Nothing to do: the update sets it up.
+- Settings has a Send feedback link, to suggest an idea or report a bug about Dozokit Sites.
+- The builder checks for new versions with Dozokit instead of GitHub. It sends only this copy's version number and a random number made for it, nothing about your sites or their visitors. Settings → Account → Updates → Check for new versions turns it off: nothing is sent then, and the builder no longer tells you about new versions.
+
 ## 0.1.12 – 2026-10-29
 
 - Fixed: photos inside a block Claude wrote itself (a grid of photos next to a text, for example) couldn't be changed in the editor: clicking them did nothing. They now get the green outline like any other photo, and you can choose another one from your photos or upload one. Only that photo changes, and Undo puts it back.

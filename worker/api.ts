@@ -14,7 +14,7 @@ const json = (data: unknown, status = 200) => Response.json(data, { status });
 const body = async (req: Request) => (await req.json().catch(() => ({}))) as Record<string, unknown>;
 
 // This copy's release. Raise it with each tag on github.com/dozokit/sites and its CHANGELOG.md entry.
-const VERSION = "0.1.12";
+const VERSION = "0.2.0";
 
 // Where a site can be visited: its domain, else the builder's address (the first site at the
 // root, the others under /<slug>/).
@@ -215,16 +215,31 @@ export const EMAIL_ERRORS: Record<string, string> = {
   unreachable: "Resend didn't answer. Try again in a minute.",
 };
 
-async function version_() {
+// This copy's random id and whether it checks for new versions, made on first use.
+async function install(env: Env) {
+  await env.DB.prepare("insert or ignore into install (id, uid) values (1, ?)").bind(crypto.randomUUID()).run();
+  return (await env.DB.prepare("select uid, share from install where id = 1").first<{ uid: string; share: number }>())!;
+}
+
+// The newest release, when it is newer than this copy. dozokit.com is asked at most once a day per
+// Cloudflare location (an hour after a failure) and counts this copy: its version and random id,
+// nothing else. Offline means no answer; with the check turned off, nothing is asked.
+async function version_(env: Env) {
+  const { uid, share } = await install(env);
   let latest: string | null = null;
+  if (!share) return json({ version: VERSION, latest, share: false });
   try {
-    const res = await fetch("https://api.github.com/repos/dozokit/sites/releases/latest", { headers: { "user-agent": "dozokit-sites", accept: "application/vnd.github+json" }, cf: { cacheTtl: 3600 } });
-    const tag = res.ok ? String(((await res.json()) as { tag_name?: string }).tag_name ?? "").replace(/^v/, "") : "";
+    const res = await fetch(`https://dozokit.com/api/latest?app=sites&v=${VERSION}&id=${uid}`, {
+      headers: { "user-agent": "dozokit-sites" },
+      signal: AbortSignal.timeout(3000),
+      cf: { cacheTtlByStatus: { "200-299": 24 * 3600, "300-599": 3600 }, cacheEverything: true },
+    });
+    const tag = res.ok ? String(((await res.json()) as { latest?: string }).latest ?? "") : "";
     const [a, b] = [tag, VERSION].map((v) => v.split(".").map(Number));
     const i = a.findIndex((n, k) => n !== b[k]);
     if (/^\d+\.\d+\.\d+$/.test(tag) && i !== -1 && a[i] > b[i]) latest = tag;
   } catch {}
-  return json({ version: VERSION, latest });
+  return json({ version: VERSION, latest, share: true });
 }
 
 export async function api(req: Request, env: Env, url: URL): Promise<Response> {
@@ -233,7 +248,14 @@ export async function api(req: Request, env: Env, url: URL): Promise<Response> {
   try {
     switch (route) {
       case "GET /state": return json(await state(env, o));
-      case "GET /version": return version_();
+      case "GET /version": return version_(env);
+      case "PUT /version": {
+        const { share } = await body(req);
+        if (typeof share !== "boolean") return json({ error: "Say true or false." }, 400);
+        await install(env);
+        await env.DB.prepare("update install set share = ? where id = 1").bind(share ? 1 : 0).run();
+        return json({ share });
+      }
       case "GET /usage": return json(await usage(env));
       case "PUT /usage": {
         // The token is tried once before it's kept, and never sent back.
