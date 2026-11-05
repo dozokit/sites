@@ -1,6 +1,8 @@
 import puppeteer from "@cloudflare/puppeteer";
 import { DurableObject } from "cloudflare:workers";
+import { publishNow, zipSite } from "./api";
 import type { Env } from "./index";
+import { drawPages } from "./store";
 
 // Screenshots for chat apps, which can't open pages themselves: the page they're designing, and a
 // contact sheet of the photos they can use. Uses Cloudflare's browser (free plan: 10 minutes a day).
@@ -52,6 +54,19 @@ export class Browser extends DurableObject<Env> {
     }
   }
 
+  // Publishing, and drawing the site's pages for visitors: done here, with the CPU time for it.
+  async publish(id: number, origin: string, confirm: boolean) {
+    return publishNow(this.env, id, origin, confirm);
+  }
+
+  async draw(siteId: number) {
+    await drawPages(this.env, siteId);
+  }
+
+  async zip(id: number, origin: string) {
+    return zipSite(this.env, id, origin);
+  }
+
   async brand(url: string) {
     const browser = await puppeteer.launch(this.env.BROWSER!).catch(() => null);
     if (!browser) return null;
@@ -70,7 +85,7 @@ export class Browser extends DurableObject<Env> {
   }
 }
 
-const browser = (env: Env) => env.SHOTS.get(env.SHOTS.idFromName("browser"));
+export const browser = (env: Env) => env.SHOTS.get(env.SHOTS.idFromName("browser"));
 
 export async function shoot(env: Env, ...shots: Shot[]) {
   if (!env.BROWSER) throw new Error("This builder has no browser binding, so it can't take screenshots.");

@@ -6,7 +6,8 @@ import { RECIPES, RECIPES_FR } from "./recipes";
 import { langPath, llms, paths, renderPage, sitemap } from "./render";
 import { checks } from "./seo";
 import { CHECK, LAYOUTS, problem, styleOf, type SiteDoc } from "./site";
-import { deleteSite, draft, save, setSetting, settings, site, sites, updateSite, version, type Site } from "./store";
+import { browser } from "./shot";
+import { deleteSite, draft, drawPages, forget, save, setSetting, settings, site, sites, updateSite, version, type Site } from "./store";
 import { cloudflareUse, usage } from "./usage";
 import { zip } from "./zip";
 
@@ -14,7 +15,7 @@ const json = (data: unknown, status = 200) => Response.json(data, { status });
 const body = async (req: Request) => (await req.json().catch(() => ({}))) as Record<string, unknown>;
 
 // This copy's release. Raise it with each tag on github.com/dozokit/sites and its CHANGELOG.md entry.
-const VERSION = "0.2.0";
+const VERSION = "0.2.1";
 
 // Where a site can be visited: its domain, else the builder's address (the first site at the
 // root, the others under /<slug>/).
@@ -100,9 +101,11 @@ async function text(req: Request, env: Env, id: number) {
       const live = structuredClone((await version(env, id, x.published))!.doc) as SiteDoc;
       set(live, b.path, value);
       await updateSite(env, id, { published: await save(env, id, live, note, "owner") });
+      await browser(env).draw(id);
     } else {
       const v = await save(env, id, doc, note, "owner");
       await updateSite(env, id, { published: v });
+      await browser(env).draw(id);
       return { change: { id: v } };
     }
   }
@@ -134,12 +137,22 @@ async function restore(env: Env, id: number, v: number) {
   return {};
 }
 
+// Publish runs in the Durable Object, which also draws the pages visitors get (drawPages).
 async function publish(req: Request, env: Env, id: number, origin: string) {
+  const out = (await browser(env).publish(id, origin, (await body(req)).confirm === true)) as Awaited<ReturnType<typeof publishNow>>;
+  if ("error" in out) return json(out, 400);
+  if (!("url" in out)) return json(out);
+  forget();
+  return out;
+}
+
+export async function publishNow(env: Env, id: number, origin: string, confirm: boolean) {
   const d = await draft(env, id);
-  if (!d) return json({ error: "Create your site first." }, 400);
+  if (!d) return { error: "Create your site first." };
   const list = checks(d.doc);
-  if ((await body(req)).confirm !== true) return json({ checks: list });
+  if (!confirm) return { checks: list };
   await updateSite(env, id, { published: d.id });
+  await drawPages(env, id);
   return { checks: list, url: (await detail(env, origin, id))!.address + "/" };
 }
 
@@ -157,9 +170,11 @@ export async function setDomain(env: Env, id: number, raw: string) {
   await updateSite(env, id, { domain });
 }
 
-async function download(env: Env, id: number, origin: string) {
+// The zip is built in the Durable Object: its checksums read every byte of every photo, 7 to 38 ms
+// of CPU on a small site, and a request on the free plan gets 10.
+export async function zipSite(env: Env, id: number, origin: string) {
   const [d, x] = await Promise.all([draft(env, id), detail(env, origin, id)]);
-  if (!d || !x) return json({ error: "Create your site first." }, 400);
+  if (!d || !x) return null;
   const enc = new TextEncoder();
   const doc = d.doc;
   const root = x.address;
@@ -174,7 +189,13 @@ async function download(env: Env, id: number, origin: string) {
     const v = await env.IMAGES.get(img, "arrayBuffer");
     if (v) files.push({ name: `img/${img}`, data: new Uint8Array(v) });
   }
-  return new Response(zip(files), { headers: { "content-disposition": `attachment; filename="${x.slug}.zip"` } });
+  return { name: x.slug, bytes: zip(files) };
+}
+
+async function download(env: Env, id: number, origin: string) {
+  const out = (await browser(env).zip(id, origin)) as Awaited<ReturnType<typeof zipSite>>;
+  if (!out) return json({ error: "Create your site first." }, 400);
+  return new Response(out.bytes, { headers: { "content-disposition": `attachment; filename="${out.name}.zip"` } });
 }
 
 async function putSettings(req: Request, env: Env, origin: string) {

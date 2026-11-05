@@ -1,12 +1,12 @@
 import { api } from "./api";
 import { mcp } from "./mcp";
-import { passOk, type Browser } from "./shot";
+import { browser, passOk, type Browser } from "./shot";
 import { phonePage, phoneSite, upload } from "./photos";
 import { authorize, bearer, metadata, register, token, unauthorized } from "./oauth";
 import { changePassword, login, logout, passwordRequired, setupNeeded, signedIn } from "./auth";
-import { favicon, llms, renderPage, sitemap } from "./render";
+import { exists, favicon, llms, renderPage, sitemap } from "./render";
 import { messageMail, sendToOwner } from "./email";
-import { draft, live, settings, sites, type Site } from "./store";
+import { analyticsOf, draft, keptPage, live, photoAlts, settings, sites, type Site } from "./store";
 import { CHECK, type SiteDoc } from "./site";
 
 export interface Env {
@@ -104,9 +104,6 @@ async function resolve(env: Env, url: URL): Promise<{ site: Site; base: string; 
   if (hit.domain) return Response.redirect(`https://${hit.domain}${rest}${url.search}`, 301);
   return { site: hit, base: bySlug ? `/${bySlug.slug}` : "", rest };
 }
-
-const photoAlts = async (env: Env, siteId: number) =>
-  Object.fromEntries((await env.DB.prepare("select id, alt from photos where site_id = ? and alt != ''").bind(siteId).all<{ id: string; alt: string }>()).results.map((r) => [r.id, r.alt]));
 
 const SITE_FILES = /\/(robots\.txt|sitemap\.xml|llms\.txt|favicon\.svg|favicon\.ico)$/;
 
@@ -237,11 +234,16 @@ export default {
     if (rest === "/llms.txt") return new Response(llms(pub.doc, origin), { headers: { "content-type": "text/plain; charset=utf-8" } });
 
     const { lang, at } = route(pub.doc, rest);
-    const s = await settings(env);
-    const analytics = s.analytics_url && site.analytics_site ? { url: s.analytics_url, site: site.analytics_site } : undefined;
+    const analytics = analyticsOf(await settings(env), site);
     const nonce = crypto.randomUUID();
     const alts = await photoAlts(env, site.id);
-    const drawn = renderPage(pub.doc, lang, { origin, base, analytics, nonce, alts }, at);
+    // The page drawn at publish time; drawn here only when it is missing or out of date, and then
+    // the Durable Object draws the site again for the next visitors.
+    let drawn = await keptPage(env, site, lang, at, { origin: url.origin, base, nonce, analytics, alts });
+    if (!drawn && exists(pub.doc, lang, at)) {
+      drawn = renderPage(pub.doc, lang, { origin, base, analytics, nonce, alts }, at);
+      ctx.waitUntil(browser(env).draw(site.id).catch(() => {}));
+    }
     if (!drawn) return page(404, "This page doesn't exist", `<a href="${base}/">Go to the home page</a>.`);
     return html(drawn, {
       "content-security-policy": csp(nonce, analytics?.url),

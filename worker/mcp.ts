@@ -1,14 +1,14 @@
 import { AiError, apply, SHAPE, tidy, type Op } from "./doc";
 import type { Env } from "./index";
-import { setDomain } from "./api";
+import { publishNow, setDomain } from "./api";
 import { readSite } from "./import";
 import { RECIPES } from "./recipes";
 import { checks } from "./seo";
 import { brandPalettes, LAYOUTS, problem, styleOf, type SiteDoc } from "./site";
 import { REVIEW, warnings, type Low } from "./lint";
 import { library, remember, used } from "./photos";
-import { CONTRAST_PROBE, OVERLAP_PROBE, previewPass, sheet, shoot } from "./shot";
-import { draft, newSite, save, site, sites, updateSite } from "./store";
+import { browser, CONTRAST_PROBE, OVERLAP_PROBE, previewPass, sheet, shoot } from "./shot";
+import { draft, forget, newSite, save, site, sites, updateSite } from "./store";
 
 // The builder as an MCP server, for chat apps the owner connected (Claude, ChatGPT). The chat's
 // own model does the writing on the owner's plan; these tools read sites, save them under the
@@ -202,8 +202,10 @@ const TOOLS: Tool[] = [
       const id = Number(a.site_id);
       const d = id ? await draft(env, id) : null;
       if (!d || !(await site(env, id))) throw new AiError(`There's no site ${String(a.site_id)}.`);
-      await updateSite(env, id, { published: d.id });
-      return { live_at: await address(env, origin, id), suggestions: checks(d.doc).filter((c) => !c.ok).map((c) => `${c.label}: ${c.fix}`) };
+      const out = (await browser(env).publish(id, origin, true)) as Awaited<ReturnType<typeof publishNow>>;
+      if (!("url" in out)) throw new AiError(`There's no site ${String(a.site_id)}.`);
+      forget();
+      return { live_at: await address(env, origin, id), suggestions: (out.checks ?? []).filter((c) => !c.ok).map((c) => `${c.label}: ${c.fix}`) };
     },
   },
   {

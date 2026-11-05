@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1 – 2026-11-05
+
+- Fits Cloudflare's free plan's 10 ms of computing per visit: a visitor's page and Publish no longer draw the site at that moment. Pages are drawn once at Publish and kept, so a visit reads the kept page.
+- Download the site as a zip works on the free plan with many photos.
+
 ## 0.2.0 – 2026-11-01
 
 - Works on Cloudflare's free plan when Claude or ChatGPT looks at your page: the screenshots after each change, preview_site, view_photos and read_website used to need more computing time per visit than the free plan allows, so they failed there. The browser now runs on its own, with the desktop and phone pictures taken in one go. Nothing to do: the update sets it up.
