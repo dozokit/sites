@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2 – 2026-11-06
+
+- On Cloudflare's free plan, Claude or ChatGPT looking at your page twice in a row no longer gets an error: the free plan opens one new browser every 20 seconds, so the second look waits for it.
+
 ## 0.2.1 – 2026-11-05
 
 - Fits Cloudflare's free plan's 10 ms of computing per visit: a visitor's page and Publish no longer draw the site at that moment. Pages are drawn once at Publish and kept, so a visit reads the kept page.

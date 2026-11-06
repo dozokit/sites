@@ -22,12 +22,24 @@ const counted = (env: Env, start: number) =>
 
 type Shot = { url: string; width: number; height: number; full?: boolean; html?: string; probe?: string };
 
+// The free plan opens one new browser every 20 s, and a chat often looks twice in a row: wait for the next one.
+async function launch(env: Env) {
+  for (let tries = 0; ; tries++) {
+    try {
+      return await puppeteer.launch(env.BROWSER!);
+    } catch (err) {
+      if (tries === 2 || !/429|rate limit/i.test(String(err))) throw err;
+      await new Promise((r) => setTimeout(r, 21_000));
+    }
+  }
+}
+
 // Driving the browser takes 46 to 585 ms of CPU, and a Worker request on the free plan gets 10 ms:
 // the browser runs in a Durable Object, which gets 30 s, and the request only waits for it.
 export class Browser extends DurableObject<Env> {
   // Every picture of one call from one browser: the free plan opens one new browser every 20 s.
   async shoot(shots: Shot[]) {
-    const browser = await puppeteer.launch(this.env.BROWSER!);
+    const browser = await launch(this.env);
     const start = Date.now();
     try {
       const out = [];
@@ -68,7 +80,7 @@ export class Browser extends DurableObject<Env> {
   }
 
   async brand(url: string) {
-    const browser = await puppeteer.launch(this.env.BROWSER!).catch(() => null);
+    const browser = await launch(this.env).catch(() => null);
     if (!browser) return null;
     const start = Date.now();
     try {
